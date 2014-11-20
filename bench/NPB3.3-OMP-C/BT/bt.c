@@ -45,6 +45,7 @@
 #include "header.h"
 #include "timers.h"
 #include "print_results.h"
+#include "numa_ctl.h"
 
 /* common /global/ */
 double elapsed_time;
@@ -104,6 +105,16 @@ int main(int argc, char *argv[])
   logical verified;
   char Class;
   char *t_names[t_last+1];
+
+	//---------------------------------------------------------------------
+	// Initialize NUMA behavior from environment
+	//---------------------------------------------------------------------
+	numa_initialize(CURRENT_NODE, CURRENT_NODE, NUMA_MIGRATE | NUMA_ENV);
+#ifdef _VERBOSE_NUMA
+	char info[STR_BUF_SIZE];
+	numa_task_info(info, sizeof(info));
+	printf("NUMA_INFO: %s\n", info);
+#endif
 
   //---------------------------------------------------------------------
   // Root node reads input file (if it exists) else takes
@@ -239,6 +250,11 @@ int main(int argc, char *argv[])
       }
     }
   }
+
+	//---------------------------------------------------------------------
+	// Teardown NUMA support
+	//---------------------------------------------------------------------
+	numa_shutdown();
 
   return 0;
 }

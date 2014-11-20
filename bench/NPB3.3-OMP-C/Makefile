@@ -73,8 +73,11 @@ veryclean: clean
 	- rm -f bin/sp.* bin/lu.* bin/mg.* bin/ft.* bin/bt.* bin/is.*
 	- rm -f bin/ep.* bin/cg.* bin/ua.* bin/dc.*
 
-header:
+%/.dir:
+	@ mkdir -p $*
+	@ echo "file: $@"
+	@ touch $@
+
+header: bin/.dir
 	@ sys/print_header
-
-
 

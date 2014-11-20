@@ -11,8 +11,8 @@ OBJS = bt.o  initialize.o exact_solution.o exact_rhs.o \
        set_constants.o adi.o  rhs.o      \
        x_solve$(VEC).o y_solve$(VEC).o solve_subs.o  \
        z_solve$(VEC).o add.o error.o verify.o \
-       ${COMMON}/print_results.o ${COMMON}/c_timers.o ${COMMON}/wtime.o
-
+       ${COMMON}/print_results.o ${COMMON}/c_timers.o ${COMMON}/wtime.o \
+			 ${COMMON}/numa_ctl.o
 
 # npbparams.h is included by header.h
 # The following rule should do the trick but many make programs (not gmake)
@@ -37,7 +37,7 @@ exec: $(OBJS)
 	${CLINK} ${CLINKFLAGS} -o ${PROGRAM} ${OBJS} ${C_LIB}
 
 .c.o:
-	${CCOMPILE} $<
+	${CCOMPILE} ${VERBOSE_NUMA} $<
 
 
 bt.o:             bt.c  header.h npbparams.h

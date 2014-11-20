@@ -1,20 +1,41 @@
 #include <stdio.h>
+#include <string.h>
 #include <assert.h>
 #include <omp.h>
 #include "numa_ctl.h"
+
+/* For sched_getcpu definition */
+#define __USE_GNU
+#include <sched.h>
 
 #define KB (1024L)
 #define MB (KB*KB)
 #define GB (KB*KB*KB)
 
+void print_header(const char* msg)
+{
+	size_t len = strlen(msg) + 5;
+	char* marker = (char*)malloc(len);
+	size_t i;
+	for(i = 0; i < len-1; i++)
+		marker[i] = '=';
+	marker[len-1] = '\0';
+
+	printf("%s\n= %s =\n%s\n\n", marker, msg, marker);
+}
+
 int main(int argc, char** argv)
 {
-	assert(numa_available() > -1 && "NUMA support is not available on this system");
+	numa_initialize(CURRENT_NODE, CURRENT_NODE, NUMA_NO_MIGRATE);
+
+	printf("\n"); // Perfectionism...
+	print_header("GENERAL NUMA INFO");
 
 	/* Kernel-dependent values */
 	printf("Maximum possible number of NUMA nodes (kernel-dependent): %d\n",
 		numa_num_possible_nodes());
-	//TODO max # cpus
+	printf("Maximum possible number of CPUs (kernel-dependent): %d\n",
+		numa_num_possible_cpus());
 	printf("Number of NUMA nodes: %d\n", numa_num_configured_nodes());
 	printf("Number of CPUs: %d\n\n", numa_num_configured_cpus());
 
@@ -45,20 +66,49 @@ int main(int argc, char** argv)
 
 	numa_bitmask_free(bm);
 
-	/* Spawn threads (one for each node) and print NUMA info */
-	omp_set_num_threads(numa_num_configured_nodes());
-#pragma omp parallel shared(str)
-	{
-		/* Migrate threads & print info (prevent overlapping */
-		numa_bind_node(omp_get_thread_num(), NUMA_MIGRATE);
+	print_header("OPENMP THREAD BEHAVIOR");
 
-		/* Prevent overlapping writes to string & printing */
+	/* See if child processes inherit NUMA nodes/CPUs */
+	omp_set_num_threads(numa_num_configured_nodes());
+	numa_initialize(0, 0, NUMA_MIGRATE);
+	struct bitmask* parent_nm = numa_get_run_node_mask();
+	printf("Set parent node to 0, checking that children inherit...\n\n");
+
+#pragma omp parallel shared(parent_nm)
+	{
 #pragma omp critical
 		{
 			numa_task_info(str, sizeof(str));
 			printf("Thread [%d]: %s\n", omp_get_thread_num(), str);
+
+			struct bitmask* nm = numa_get_run_node_mask();
+			assert(numa_bitmask_equal(parent_nm, nm) && "Child mask doesn't match parent mask!");
+			numa_free_cpumask(nm);
+		}
+	}
+	numa_free_cpumask(parent_nm);
+
+	/* Migrate threads & print/verify NUMA info */
+	printf("\nMigrating threads...\n\n");
+#pragma omp parallel shared(str)
+	{
+		numa_bind_node(omp_get_thread_num(), NUMA_MIGRATE);
+
+		/* Sanity check migration & print thread info */
+#pragma omp critical
+		{
+			numa_task_info(str, sizeof(str));
+			printf("Thread [%d]: %s\n", omp_get_thread_num(), str);
+
+			struct bitmask* nm = numa_get_run_node_mask();
+			struct bitmask* cm = numa_allocate_cpumask();
+			numa_nodemask_to_cpumask(nm, cm);
+			int cpu = sched_getcpu();
+			assert(numa_bitmask_isbitset(cm, cpu) && "Task is not executing on correct node!");
+			numa_free_cpumask(cm);
 		}
 	}
 
 	return 0;
 }
+
