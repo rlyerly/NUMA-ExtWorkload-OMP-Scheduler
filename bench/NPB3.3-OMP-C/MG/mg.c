@@ -47,6 +47,7 @@
 #include "randdp.h"
 #include "timers.h"
 #include "print_results.h"
+#include "numa_ctl.h"
 
 
 static void setup(int *n1, int *n2, int *n3);
@@ -109,6 +110,11 @@ int main()
   int i;
   char *t_names[T_last];
   double tmax;
+
+	//--------------------------------------------------------------------
+	// Initialize NUMA control
+	//--------------------------------------------------------------------
+	numa_initialize(CURRENT_NODE, CURRENT_NODE, NUMA_MIGRATE | NUMA_ENV);
 
   for (i = T_init; i < T_last; i++) {
     timer_clear(i);
@@ -360,6 +366,11 @@ int main()
       }
     }
   }
+
+	//--------------------------------------------------------------------
+	// Teardown NUMA control
+	//--------------------------------------------------------------------
+	numa_shutdown();
 
   return 0;
 }

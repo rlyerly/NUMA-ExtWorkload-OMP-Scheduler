@@ -57,6 +57,7 @@
 #include "adc.h"
 #include "macrodef.h"
 #include "npbparams.h"
+#include "numa_ctl.h"
 
 #ifdef UNIX
 #include <sys/types.h>
@@ -102,6 +103,11 @@ int main ( int argc, char * argv[] )
   ADC_PAR *parp;
   ADC_VIEW_PARS *adcpp;
   int32 retCode;
+
+	//--------------------------------------------------------------------
+	// Initialize NUMA control
+	//--------------------------------------------------------------------
+	numa_initialize(CURRENT_NODE, CURRENT_NODE, NUMA_MIGRATE | NUMA_ENV);
 
   fprintf(stdout,"\n\n NAS Parallel Benchmarks (NPB3.3-OMP) - DC Benchmark\n\n" );
   if(argc!=3){
@@ -162,6 +168,12 @@ int main ( int argc, char * argv[] )
 
   if(parp)  { free(parp);   parp = 0; }
   if(adcpp) { free(adcpp); adcpp = 0; }
+
+	//--------------------------------------------------------------------
+	// Teardown NUMA control
+	//--------------------------------------------------------------------
+	numa_shutdown();
+
   return 0;
 }
 

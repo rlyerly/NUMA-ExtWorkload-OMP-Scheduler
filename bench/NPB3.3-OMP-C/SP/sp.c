@@ -44,6 +44,7 @@
 
 #include "header.h"
 #include "print_results.h"
+#include "numa_ctl.h"
 
 /* common /global/ */
 int grid_points[3], nx2, ny2, nz2;
@@ -102,6 +103,11 @@ int main(int argc, char *argv[])
   logical verified;
   char Class;
   char *t_names[t_last+1];
+
+	//--------------------------------------------------------------------
+	// Initialize NUMA control
+	//--------------------------------------------------------------------
+	numa_initialize(CURRENT_NODE, CURRENT_NODE, NUMA_MIGRATE | NUMA_ENV);
 
   //---------------------------------------------------------------------
   // Read input file (if it exists), else take
@@ -245,6 +251,11 @@ int main(int argc, char *argv[])
       }
     }
   }
+
+	//--------------------------------------------------------------------
+	// Teardown NUMA control
+	//--------------------------------------------------------------------
+	numa_shutdown();
 
   return 0;
 }

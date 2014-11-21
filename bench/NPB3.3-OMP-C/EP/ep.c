@@ -53,6 +53,7 @@
 #include "randdp.h"
 #include "timers.h"
 #include "print_results.h"
+#include "numa_ctl.h"
 
 #define MAX(X,Y)  (((X) > (Y)) ? (X) : (Y))
 
@@ -83,6 +84,11 @@ int main(int argc, char *argv[])
 
   double dum[3] = {1.0, 1.0, 1.0};
   char   size[16];
+
+	//--------------------------------------------------------------------
+	// Initialize NUMA control
+	//--------------------------------------------------------------------
+	numa_initialize(CURRENT_NODE, CURRENT_NODE, NUMA_MIGRATE | NUMA_ENV);
 
   FILE *fp;
 
@@ -301,6 +307,11 @@ int main(int argc, char *argv[])
     tt = timer_read(2);
     printf("Random numbers: %9.3lf (%6.2lf)\n", tt, tt*100.0/tm);
   }
+
+	//--------------------------------------------------------------------
+	// Teardown NUMA control
+	//--------------------------------------------------------------------
+	numa_shutdown();
 
   return 0;
 }

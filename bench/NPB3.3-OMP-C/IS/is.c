@@ -47,6 +47,8 @@
 #include <omp.h>
 #endif
 
+#include "numa_ctl.h"
+
 
 /*****************************************************************/
 /* For serial IS, buckets are not really req'd to solve NPB1 IS  */
@@ -901,6 +903,10 @@ int main( int argc, char **argv )
 
     FILE            *fp;
 
+		//------------------------------------------------------------------
+		// Initialize NUMA control
+		//------------------------------------------------------------------
+		numa_initialize(CURRENT_NODE, CURRENT_NODE, NUMA_MIGRATE | NUMA_ENV);
 
 /*  Initialize timers  */
     timer_on = 0;            
@@ -1047,6 +1053,11 @@ int main( int argc, char **argv )
        t_percent = timecounter/t_total * 100.;
        printf(" Sorting        : %8.3f (%5.2f%%)\n", timecounter, t_percent);
     }
+
+		//------------------------------------------------------------------
+		// Teardown NUMA control
+		//------------------------------------------------------------------
+		numa_shutdown();
 
     return 0;
          /**************************/

@@ -50,6 +50,7 @@
 #include "applu.incl"
 #include "timers.h"
 #include "print_results.h"
+#include "numa_ctl.h"
 
 
 //---------------------------------------------------------------------
@@ -142,6 +143,11 @@ int main(int argc, char *argv[])
   double t, tmax, trecs[t_last+1];
   int i;
   char *t_names[t_last+1];
+
+	//--------------------------------------------------------------------
+	// Initialize NUMA control
+	//--------------------------------------------------------------------
+	numa_initialize(CURRENT_NODE, CURRENT_NODE, NUMA_MIGRATE | NUMA_ENV);
 
   //---------------------------------------------------------------------
   // Setup info for timers
@@ -261,6 +267,11 @@ int main(int argc, char *argv[])
       }
     }
   }
+
+	//--------------------------------------------------------------------
+	// Teardown NUMA control
+	//--------------------------------------------------------------------
+	numa_shutdown();
 
   return 0;
 }

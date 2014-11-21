@@ -12,7 +12,7 @@ OBJS = lu.o read_input.o \
        erhs.o ssor$(VEC).o rhs$(VEC).o l2norm.o \
        jacld.o blts$(VEC).o jacu.o buts$(VEC).o error.o syncs.o \
        pintgr.o verify.o ${COMMON}/print_results.o \
-       ${COMMON}/c_timers.o ${COMMON}/wtime.o
+       ${COMMON}/c_timers.o ${COMMON}/wtime.o ${COMMON}/numa_ctl.o
 
 
 # npbparams.h is included by applu.incl

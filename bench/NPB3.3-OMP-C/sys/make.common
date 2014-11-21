@@ -10,9 +10,6 @@ CLASS=U
 
 default:: ${PROGRAM}
 
-# Enable verbose library printing for now
-VERBOSE_NUMA := -D_VERBOSE_NUMA
-
 # This makes sure the configuration utility setparams 
 # is up to date. 
 # Note that this must be run every time, which is why the

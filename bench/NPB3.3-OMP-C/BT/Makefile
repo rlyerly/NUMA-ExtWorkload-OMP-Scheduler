@@ -37,7 +37,7 @@ exec: $(OBJS)
 	${CLINK} ${CLINKFLAGS} -o ${PROGRAM} ${OBJS} ${C_LIB}
 
 .c.o:
-	${CCOMPILE} ${VERBOSE_NUMA} $<
+	${CCOMPILE} $<
 
 
 bt.o:             bt.c  header.h npbparams.h

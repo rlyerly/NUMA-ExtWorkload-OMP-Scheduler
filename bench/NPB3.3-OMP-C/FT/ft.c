@@ -47,7 +47,7 @@
 #include "randdp.h"
 #include "timers.h"
 #include "print_results.h"
-
+#include "numa_ctl.h"
 
 //---------------------------------------------------------------------------
 static dcomplex ty1[MAXDIM][FFTBLOCKPAD_DEFAULT];
@@ -111,6 +111,11 @@ int main(int argc, char *argv[])
   double total_time, mflops;
   logical verified;
   char Class;
+
+	//--------------------------------------------------------------------
+	// Initialize NUMA control
+	//--------------------------------------------------------------------
+	numa_initialize(CURRENT_NODE, CURRENT_NODE, NUMA_MIGRATE | NUMA_ENV);
 
   //---------------------------------------------------------------------
   // Run the entire problem once to make sure all data is touched. 
@@ -180,6 +185,11 @@ int main(int argc, char *argv[])
                 total_time, mflops, "          floating point", verified, 
                 NPBVERSION, COMPILETIME, CS1, CS2, CS3, CS4, CS5, CS6, CS7);
   if (timers_enabled) print_timers();
+
+	//--------------------------------------------------------------------
+	// Teardown NUMA control
+	//--------------------------------------------------------------------
+	numa_shutdown();
 
   return 0;
 }

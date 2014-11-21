@@ -27,14 +27,15 @@ typedef unsigned int numa_flag_t;
 
 /* Useful definitions */
 #define CURRENT_NODE UINT_MAX
+#define IS_BIT_SET( flags, pos ) ((flags >> pos ) & 0x1)
 
 /* Migration */
-#define NUMA_DO_MIGRATE( val ) (val & 0x1)
+#define NUMA_DO_MIGRATE( flags ) IS_BIT_SET(flags, 0)
 #define NUMA_MIGRATE 1
 #define NUMA_NO_MIGRATE 0
 
-/* Enable/disable environment variables */
-#define NUMA_ENV_CONFIG( val ) ((val >> 1) & 0x1)
+/* Configuration from environment variables */
+#define NUMA_ENV_CONFIG( flags ) IS_BIT_SET(flags, 1)
 #define NUMA_ENV 1 << 1
 #define NUMA_NO_ENV 0 << 1
 
@@ -87,7 +88,7 @@ void numa_shutdown();
  * 
  * @param node NUMA node in which to bind this task's memory & execution
  * @param flags flag indicating whether or not to migrate current memory
- * @return true if bind succeeded, false otherwise
+ * @return 0 if bind succeeded, false otherwise
  */
 int numa_bind_node(numa_node_t node, numa_flag_t flags);
 
@@ -96,7 +97,7 @@ int numa_bind_node(numa_node_t node, numa_flag_t flags);
  *
  * @param node NUMA node in which to bind this task's memory
  * @param flags flag indicating whether to not to migrate current memory
- * @param true if bind succeeded, false otherwise
+ * @param 0 if bind succeeded, false otherwise
  */
 int numa_set_membind_node(numa_node_t node, numa_flag_t flags);
 
@@ -104,9 +105,30 @@ int numa_set_membind_node(numa_node_t node, numa_flag_t flags);
 // Convenience functions
 ///////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Write current NUMA memory information to a string.
+ */
+void numa_mem_info(char* str, size_t str_size);
+
+/**
+ * Write current NUMA task execution information to a string.
+ */
 void numa_task_info(char* str, size_t str_size);
+
+/**
+ * Convert a node mask into a CPU mask with all CPUs contained by the nodes in
+ * the node mask.
+ */
 void numa_nodemask_to_cpumask(const struct bitmask* nodes, struct bitmask* cpus);
+
+/**
+ * Convert a node mask to a string.
+ */
 void numa_nodemask_to_str(const struct bitmask* nodes, char* str, size_t str_size);
+
+/**
+ * Convert a CPU mask to a string.
+ */
 void numa_cpumask_to_str(const struct bitmask* cpus, char* str, size_t str_size);
 
 #endif /* _NUMA_CTL_H */

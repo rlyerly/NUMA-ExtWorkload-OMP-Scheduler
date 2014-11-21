@@ -108,6 +108,7 @@ int main(int argc, char** argv)
 			numa_free_cpumask(cm);
 		}
 	}
+	printf("\n");
 
 	return 0;
 }

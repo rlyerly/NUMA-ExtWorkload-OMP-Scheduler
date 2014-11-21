@@ -47,7 +47,7 @@
 #include "randdp.h"
 #include "timers.h"
 #include "print_results.h"
-
+#include "numa_ctl.h"
 
 //---------------------------------------------------------------------
 /* common / main_int_mem / */
@@ -153,6 +153,11 @@ int main(int argc, char *argv[])
   double zeta_verify_value, epsilon, err;
 
   char *t_names[T_last];
+
+	//--------------------------------------------------------------------
+	// Initialize NUMA control
+	//--------------------------------------------------------------------
+	numa_initialize(CURRENT_NODE, CURRENT_NODE, NUMA_MIGRATE | NUMA_ENV);
 
   for (i = 0; i < T_last; i++) {
     timer_clear(i);
@@ -427,6 +432,11 @@ int main(int argc, char *argv[])
       }
     }
   }
+
+	//--------------------------------------------------------------------
+	// Teardown NUMA control
+	//--------------------------------------------------------------------
+	numa_shutdown();
 
   return 0;
 }

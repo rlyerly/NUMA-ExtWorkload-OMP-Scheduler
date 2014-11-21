@@ -8,6 +8,8 @@
 
 #include "numa_ctl.h"
 
+#define _VERBOSE_NUMA // <-- TODO remove
+
 ///////////////////////////////////////////////////////////////////////////////
 // Initialize & teardown
 ///////////////////////////////////////////////////////////////////////////////
@@ -19,6 +21,8 @@ int numa_initialize(numa_node_t mem_node,
 	// Ensure NUMA availability
 	assert(numa_available() > -1 &&
 		"NUMA support is not available on this system");
+
+	int result = 0;
 
 	//TODO save current NUMA configuration
 
@@ -32,23 +36,37 @@ int numa_initialize(numa_node_t mem_node,
 	if(mem_node != CURRENT_NODE || exec_node != CURRENT_NODE) // apply requested
 	{																													// behavior or...
 		if(mem_node == exec_node)
-			return numa_bind_node(mem_node, flags);
-		else if(exec_node != CURRENT_NODE)
-			return numa_run_on_node(exec_node);
+			result = numa_bind_node(mem_node, flags);
 		else
-			return numa_set_membind_node(mem_node, flags);
+		{
+			if(exec_node != CURRENT_NODE)
+				result = numa_run_on_node(exec_node);
+			if(mem_node != CURRENT_NODE)
+				result = numa_set_membind_node(mem_node, flags);
+		}
 	}
 	else if(NUMA_ENV_CONFIG(flags)) // ...get NUMA behavior from environment
 	{
 		if(getenv(NUMA_BIND_TO_NODE))
-			return numa_bind_node(atoi(getenv(NUMA_BIND_TO_NODE)), NUMA_MIGRATE);
-		else if(getenv(NUMA_CPU_NODE))
-			return numa_run_on_node(atoi(getenv(NUMA_CPU_NODE)));
-		else if(getenv(NUMA_MEM_NODE))
-			return numa_set_membind_node(atoi(getenv(NUMA_MEM_NODE)), NUMA_MIGRATE);
+			result = numa_bind_node(atoi(getenv(NUMA_BIND_TO_NODE)), NUMA_MIGRATE);
+		else
+		{
+			if(getenv(NUMA_CPU_NODE))
+				result = numa_run_on_node(atoi(getenv(NUMA_CPU_NODE)));
+			if(getenv(NUMA_MEM_NODE))
+				result = numa_set_membind_node(atoi(getenv(NUMA_MEM_NODE)), NUMA_MIGRATE);
+		}
 	}
 
-	return 0;
+#ifdef _VERBOSE_NUMA
+	char info[STR_BUF_SIZE];
+	numa_mem_info(info, sizeof(info));
+	printf("NUMA memory information: %s\n", info);
+	numa_task_info(info, sizeof(info));
+	printf("NUMA task information: %s\n", info);
+#endif
+
+	return result;
 }
 
 void numa_shutdown()
@@ -101,6 +119,18 @@ int numa_set_membind_node(numa_node_t node, numa_flag_t flags)
 // Convenience functions
 ///////////////////////////////////////////////////////////////////////////////
 
+void numa_mem_info(char* str, size_t str_size)
+{
+	char tmp[STR_BUF_SIZE];
+	struct bitmask* nm = numa_get_membind();
+	str[0] = '\0';
+
+	numa_nodemask_to_str(nm, tmp, sizeof(tmp));
+	snprintf(str, str_size, "Node(s): %s", tmp);
+
+	numa_bitmask_free(nm);
+}
+
 void numa_task_info(char* str, size_t str_size)
 {
 	char tmp[STR_BUF_SIZE];
@@ -118,7 +148,7 @@ void numa_task_info(char* str, size_t str_size)
 	strcat(str, tmp);
 
 	/*  3. Current CPU of execution */
-	snprintf(tmp, sizeof(tmp), ", executing on CPU %d", sched_getcpu());
+	snprintf(tmp, sizeof(tmp), " (executing on CPU %d)", sched_getcpu());
 	strcat(str, tmp);
 
 	numa_bitmask_free(nm);
@@ -169,6 +199,9 @@ void numa_nodemask_to_str(const struct bitmask* nodes, char* str, size_t str_siz
 			}
 		}
 	}
+	
+	if(!first_set)
+		snprintf(str, str_size, "(none)");
 }
 
 void numa_cpumask_to_str(const struct bitmask* cpus, char* str, size_t str_size)
@@ -195,5 +228,8 @@ void numa_cpumask_to_str(const struct bitmask* cpus, char* str, size_t str_size)
 			}
 		}
 	}
+
+	if(!first_set)
+		snprintf(str, str_size, "(none)");
 }
 

@@ -9,7 +9,8 @@ include ../sys/make.common
 OBJS = is.o \
        ${COMMON}/c_print_results.o \
        ${COMMON}/c_timers.o \
-       ${COMMON}/c_wtime.o
+       ${COMMON}/c_wtime.o \
+			 ${COMMON}/numa_ctl.o
 
 
 ${PROGRAM}: config ${OBJS}
