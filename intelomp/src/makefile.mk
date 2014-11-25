@@ -393,8 +393,9 @@ ifeq "$(os)" "lin"
         ifeq "$(c)" "gcc"
             ld-flags-dll += -static-libgcc
             # omp_os is non-empty only in the open-source code
+						# Rob: add NUMA & runtime libraries
             ifneq "$(omp_os)" "freebsd"
-                ld-flags-extra += -Wl,-ldl
+                ld-flags-extra += -Wl,-ldl -Wl,-lnuma -Wl,-lrt
             endif
         endif
         ifeq "$(c)" "clang"
@@ -732,12 +733,15 @@ do_test_touch_mt := 1
 ifeq "$(LIB_TYPE)" "stub"
     lib_c_items += kmp_stub
 else # norm or prof
+     # Rob: added numa control + scheduler communication source
     lib_c_items +=                   \
         kmp_alloc                    \
         kmp_atomic                   \
         kmp_csupport                 \
         kmp_debug                    \
-	kmp_itt                      \
+        kmp_itt                      \
+				numa_ctl                     \
+        sched_comm                   \
         $(empty)
     ifeq "$(USE_ITT_NOTIFY)" "1"
         lib_c_items +=  ittnotify_static
@@ -884,8 +888,9 @@ out_lib_files  = $(addprefix $(out_lib_dir),$(lib_file) $(imp_file) $(pdb_file) 
 out_inc_files  = $(addprefix $(out_ptf_dir)include_compat/,iomp_lib.h)
 out_mod_files  = \
     $(addprefix $(out_ptf_dir)include/,omp_lib.mod omp_lib_kinds.mod)
+# Rob: added NUMA control & scheduling headers to expose API to applications
 out_cmn_files  = \
-    $(addprefix $(out_cmn_dir)include/,omp.h omp_lib.h omp_lib.f omp_lib.f90) \
+    $(addprefix $(out_cmn_dir)include/,omp.h omp_lib.h numa_ctl.h sched_comm.h omp_lib.f omp_lib.f90) \
     $(addprefix $(out_cmn_dir)include_compat/,iomp.h)
 ifneq "$(out_lib_fat_dir)" ""
     out_lib_fat_files  = $(addprefix $(out_lib_fat_dir),$(lib_file) $(imp_file))
@@ -1492,6 +1497,9 @@ ifneq "$(filter %-dyna win-%,$(os)-$(LINK_TYPE))" ""
 
         td_exp += libdl.so.2
         td_exp += libgcc_s.so.1
+				# Rob: added dependencies for shared memory & NUMA
+				td_exp += libnuma.so.1
+				td_exp += librt.so.1
         ifeq "$(filter 32 32e 64 ppc64,$(arch))" ""
             td_exp += libffi.so.6
             td_exp += libffi.so.5

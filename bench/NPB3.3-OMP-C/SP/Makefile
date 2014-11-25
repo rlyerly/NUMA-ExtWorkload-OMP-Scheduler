@@ -10,8 +10,7 @@ OBJS = sp.o initialize.o exact_solution.o exact_rhs.o \
        set_constants.o adi.o rhs.o      \
        x_solve.o ninvr.o y_solve.o pinvr.o    \
        z_solve.o tzetar.o add.o txinvr.o error.o verify.o  \
-       ${COMMON}/print_results.o ${COMMON}/c_timers.o ${COMMON}/wtime.o \
-			 ${COMMON}/numa_ctl.o
+       ${COMMON}/print_results.o ${COMMON}/c_timers.o ${COMMON}/wtime.o
 
 # npbparams.h is included by header.h
 # The following rule should do the trick but many make programs (not gmake)

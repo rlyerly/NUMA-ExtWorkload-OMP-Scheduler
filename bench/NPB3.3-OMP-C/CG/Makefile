@@ -10,8 +10,7 @@ OBJS = cg.o \
        ${COMMON}/print_results.o  \
        ${COMMON}/${RAND}.o \
        ${COMMON}/c_timers.o \
-       ${COMMON}/wtime.o \
-			 ${COMMON}/numa_ctl.o
+       ${COMMON}/wtime.o
 
 
 ${PROGRAM}: config ${OBJS}

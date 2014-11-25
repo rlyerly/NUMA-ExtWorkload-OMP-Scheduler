@@ -257,7 +257,7 @@ int main(int argc, char *argv[])
 	//--------------------------------------------------------------------
 	// Initialize NUMA control
 	//--------------------------------------------------------------------
-	numa_initialize(CURRENT_NODE, CURRENT_NODE, NUMA_MIGRATE | NUMA_ENV);
+	numa_initialize_env(NUMA_MIGRATE_EXISTING);
 
   //---------------------------------------------------------------------
   // Read input file (if it exists), else take

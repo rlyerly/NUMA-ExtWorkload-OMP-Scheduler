@@ -8,8 +8,7 @@ include ../sys/make.common
 
 OBJS = adc.o dc.o extbuild.o rbt.o jobcntl.o \
 	${COMMON}/c_print_results.o  \
-	${COMMON}/c_timers.o ${COMMON}/c_wtime.o \
-	${COMMON}/numa_ctl.o
+	${COMMON}/c_timers.o ${COMMON}/c_wtime.o
 
 
 # npbparams.h is provided for backward compatibility with NPB compilation

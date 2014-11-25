@@ -38,8 +38,6 @@ ${COMMON}/c_timers.o: ${COMMON}/c_timers.c ../config/make.def
 ${COMMON}/wtime.o: ${COMMON}/${WTIME} ../config/make.def
 	cd ${COMMON}; ${CCOMPILE} ${MACHINE} -o wtime.o ${COMMON}/${WTIME}
 
-${COMMON}/numa_ctl.o: ${COMMON}/numa_ctl.c ../config/make.def
-	cd ${COMMON}; ${CCOMPILE} numa_ctl.c
 # For most machines or CRAY or IBM
 #	cd ${COMMON}; ${CCOMPILE} ${MACHINE} ${COMMON}/wtime.c
 # For a precise timer on an SGI Power Challenge, try:

@@ -111,7 +111,7 @@ function run_configured_bench {
 	echo -n " +++ [$cur_iteration] $cur_bench ($cur_cpu_node, $cur_mem_node) -> "
 
 	local log_file=$RESULTS/${cur_bench}-${cur_cpu_node}-${cur_mem_node}-${cur_iteration}.log
-	NUMA_CPU_NODE=$cur_cpu_node NUMA_MEM_NODE=$cur_mem_node $NPB_BIN/$cur_bench > $log_file
+	NUMA_CPU_NODES=$cur_cpu_node NUMA_MEM_NODES=$cur_mem_node $NPB_BIN/$cur_bench > $log_file
 
 	if [ $? -eq 0 ]; then
 		echo `cat $log_file | grep "Time in seconds =" | \

@@ -979,4 +979,26 @@ kmp_set_warnings_off                        780
 
 %endif
 
+# Rob: NUMA control & scheduler communication functions
+numa_initialize						2470
+numa_initialize_node			2471
+numa_initialize_env				2472
+numa_shutdown							2473
+numa_bind_node						2474
+numa_set_membind_node			2475
+numa_mem_info							2476
+numa_task_info						2477
+numa_nodemask_to_cpumask	2478
+numa_nodemask_to_str			2479
+numa_cpumask_to_str				2480
+
+omp_numa_initialize			2481
+omp_numa_shutdown				2482
+omp_numa_num_nodes			2483
+omp_numa_num_tasks			2484
+omp_numa_clear_counters	2485
+omp_numa_schedule_tasks	2486
+omp_numa_cleanup				2487
+omp_numa_free_exec_spec	2488
+
 # end of file #

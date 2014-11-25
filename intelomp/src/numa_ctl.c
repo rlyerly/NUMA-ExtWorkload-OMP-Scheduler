@@ -3,7 +3,6 @@
 #include <assert.h>
 
 /* For system scheduling API */
-#define __USE_GNU
 #include <sched.h>
 
 #include "numa_ctl.h"
@@ -11,61 +10,134 @@
 #define _VERBOSE_NUMA // <-- TODO remove
 
 ///////////////////////////////////////////////////////////////////////////////
+// Internal functions
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Migrates execution to the nodes set in the nodemask.  Additionally, migrate
+ * pages if NUMA_MIGRATE_EXISTING is set in flags.
+ */
+static int __numa_bind_and_migrate(struct bitmask* nm,
+																	 numa_flag_t flags)
+{
+	int ret = 0;
+	if(NUMA_DO_MIGRATE( flags ))
+		ret = numa_migrate_pages(0, numa_get_membind(), nm);
+	numa_bind(nm);
+	return ret;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Initialize & teardown
 ///////////////////////////////////////////////////////////////////////////////
 
-int numa_initialize(numa_node_t mem_node,
-										numa_node_t exec_node,
+int numa_initialize(struct bitmask* mem_nodes,
+										struct bitmask* exec_nodes,
 										numa_flag_t flags)
 {
-	// Ensure NUMA availability
-	assert(numa_available() > -1 &&
-		"NUMA support is not available on this system");
-
 	int result = 0;
 
-	//TODO save current NUMA configuration
+	// Sanity checks:
+	// Ensure NUMA availability on this system
+	assert(numa_available() > -1 &&
+		"NUMA support is not available on this system");
+	assert((mem_nodes != NULL || exec_nodes != NULL) &&
+					"Cannot initialize, either mem_nodes or exec_nodes are NULL!");
+	assert((!numa_bitmask_equal(mem_nodes, numa_no_nodes_ptr) ||
+					!numa_bitmask_equal(exec_nodes, numa_no_nodes_ptr)) &&
+					"Cannot initialize, either mem_nodes or exec_nodes are empty!");
 
-	// Assert that no more than one configuration was requested
-	int configs = 0;
-	if(getenv(NUMA_BIND_TO_NODE)) configs++;
-	if(getenv(NUMA_CPU_NODE) || getenv(NUMA_MEM_NODE)) configs++;
-	assert(configs < 2 && "Please set either "
-		NUMA_BIND_TO_NODE " or " NUMA_CPU_NODE " + " NUMA_MEM_NODE);
+	//TODO save current configuration
 
-	if(mem_node != CURRENT_NODE || exec_node != CURRENT_NODE) // apply requested
-	{																													// behavior or...
-		if(mem_node == exec_node)
-			result = numa_bind_node(mem_node, flags);
-		else
-		{
-			if(exec_node != CURRENT_NODE)
-				result = numa_run_on_node(exec_node);
-			if(mem_node != CURRENT_NODE)
-				result = numa_set_membind_node(mem_node, flags);
-		}
-	}
-	else if(NUMA_ENV_CONFIG(flags)) // ...get NUMA behavior from environment
+	if(numa_bitmask_equal(mem_nodes, exec_nodes))
+		result = __numa_bind_and_migrate(mem_nodes, flags);
+	else
 	{
-		if(getenv(NUMA_BIND_TO_NODE))
-			result = numa_bind_node(atoi(getenv(NUMA_BIND_TO_NODE)), NUMA_MIGRATE);
-		else
-		{
-			if(getenv(NUMA_CPU_NODE))
-				result = numa_run_on_node(atoi(getenv(NUMA_CPU_NODE)));
-			if(getenv(NUMA_MEM_NODE))
-				result = numa_set_membind_node(atoi(getenv(NUMA_MEM_NODE)), NUMA_MIGRATE);
-		}
+		result = numa_run_on_node_mask(exec_nodes);
+		numa_set_membind(mem_nodes);
 	}
-
+	
 #ifdef _VERBOSE_NUMA
-	char info[STR_BUF_SIZE];
-	numa_mem_info(info, sizeof(info));
-	printf("NUMA memory information: %s\n", info);
-	numa_task_info(info, sizeof(info));
-	printf("NUMA task information: %s\n", info);
+	//TODO
 #endif
 
+	return result;
+}
+
+int numa_initialize_node(numa_node_t mem_node,
+												 numa_node_t exec_node,
+												 numa_flag_t flags)
+{
+	int result = 0;
+
+	// Sanity check
+	assert(mem_node < numa_num_configured_nodes() &&
+				 exec_node < numa_num_configured_nodes() &&
+				 "Cannot intiialize, either mem_node or exec_node are invalid!");
+
+	struct bitmask* mem_nodes = numa_allocate_nodemask();
+	struct bitmask* exec_nodes = numa_allocate_nodemask();
+
+	if(mem_node == exec_node)
+	{
+		numa_bitmask_setbit(mem_nodes, mem_node);
+		numa_bitmask_setbit(exec_nodes, mem_node);
+	}
+	else
+	{
+		if(exec_node != ANY_NODE)
+			numa_bitmask_setbit(exec_nodes, exec_node);
+		else
+			numa_bitmask_setall(exec_nodes);
+
+		if(mem_node != ANY_NODE)
+			numa_bitmask_setbit(mem_nodes, mem_node);
+		else
+			numa_bitmask_setall(mem_nodes);
+	}
+
+	result = numa_initialize(mem_nodes, exec_nodes, flags);
+	numa_bitmask_free(mem_nodes);
+	numa_bitmask_free(exec_nodes);
+	return result;
+}
+
+int numa_initialize_env(numa_flag_t flags)
+{
+	// Assert that no more than one configuration was requested
+	int result = 0, configs = 0;
+	if(getenv(NUMA_BIND_TO_NODES)) configs++;
+	if(getenv(NUMA_CPU_NODES) || getenv(NUMA_MEM_NODES)) configs++;
+	assert(configs < 2 && "Please set either "
+		NUMA_BIND_TO_NODES " or " NUMA_CPU_NODES " + " NUMA_MEM_NODES);
+
+	struct bitmask* mem_nodes;
+	struct bitmask* exec_nodes;
+
+	if(getenv(NUMA_BIND_TO_NODES))
+	{
+		mem_nodes = numa_parse_nodestring(getenv(NUMA_BIND_TO_NODES));
+		exec_nodes = numa_parse_nodestring(getenv(NUMA_BIND_TO_NODES));
+	}
+	else
+	{
+		if(getenv(NUMA_CPU_NODES))
+			exec_nodes = numa_parse_nodestring(getenv(NUMA_CPU_NODES));
+		else
+			exec_nodes = numa_all_nodes_ptr;
+
+		if(getenv(NUMA_MEM_NODES))
+			mem_nodes = numa_parse_nodestring(getenv(NUMA_MEM_NODES));
+		else
+			mem_nodes = numa_all_nodes_ptr;
+	}
+
+	assert(mem_nodes != NULL && exec_nodes != NULL &&
+		"Could not get nodes from environment - check for valid nodestrings!");
+
+	result = numa_initialize(mem_nodes, exec_nodes, flags);
+	numa_bitmask_free(mem_nodes);
+	numa_bitmask_free(exec_nodes);
 	return result;
 }
 
@@ -84,16 +156,11 @@ int numa_bind_node(numa_node_t node, numa_flag_t flags)
 	assert(numa_bitmask_isbitset(numa_get_mems_allowed(), node) &&
 		"Cannot migrate memory to requested node, not allowed");
 
-	int ret = 0;
-
 	struct bitmask* nm = numa_allocate_nodemask();
 	numa_bitmask_setbit(nm, node);
-
-	if(NUMA_DO_MIGRATE( flags ))
-		ret = numa_migrate_pages(0, numa_get_membind(), nm);
-	numa_bind(nm);
-
+	int ret = __numa_bind_and_migrate(nm, flags);
 	numa_bitmask_free(nm);
+
 	return ret;
 }
 

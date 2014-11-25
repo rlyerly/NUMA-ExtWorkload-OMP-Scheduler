@@ -26,7 +26,7 @@ void print_header(const char* msg)
 
 int main(int argc, char** argv)
 {
-	numa_initialize(CURRENT_NODE, CURRENT_NODE, NUMA_NO_MIGRATE);
+	numa_initialize(numa_all_nodes_ptr, numa_all_nodes_ptr, NO_FLAGS);
 
 	printf("\n"); // Perfectionism...
 	print_header("GENERAL NUMA INFO");
@@ -70,7 +70,7 @@ int main(int argc, char** argv)
 
 	/* See if child processes inherit NUMA nodes/CPUs */
 	omp_set_num_threads(numa_num_configured_nodes());
-	numa_initialize(0, 0, NUMA_MIGRATE);
+	numa_initialize(0, 0, NUMA_MIGRATE_EXISTING);
 	struct bitmask* parent_nm = numa_get_run_node_mask();
 	printf("Set parent node to 0, checking that children inherit...\n\n");
 
@@ -92,7 +92,7 @@ int main(int argc, char** argv)
 	printf("\nMigrating threads...\n\n");
 #pragma omp parallel shared(str)
 	{
-		numa_bind_node(omp_get_thread_num(), NUMA_MIGRATE);
+		numa_bind_node(omp_get_thread_num(), NUMA_MIGRATE_EXISTING);
 
 		/* Sanity check migration & print thread info */
 #pragma omp critical

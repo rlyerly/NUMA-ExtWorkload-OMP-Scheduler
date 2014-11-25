@@ -8,8 +8,7 @@ include ../sys/make.common
 OBJS = numa_info.o \
        ${COMMON}/c_print_results.o \
        ${COMMON}/c_timers.o \
-       ${COMMON}/c_wtime.o \
-       ${COMMON}/numa_ctl.o
+       ${COMMON}/c_wtime.o
 
 
 ${PROGRAM}: config ${OBJS}

@@ -114,7 +114,7 @@ int main()
 	//--------------------------------------------------------------------
 	// Initialize NUMA control
 	//--------------------------------------------------------------------
-	numa_initialize(CURRENT_NODE, CURRENT_NODE, NUMA_MIGRATE | NUMA_ENV);
+	numa_initialize_env(NUMA_MIGRATE_EXISTING);
 
   for (i = T_init; i < T_last; i++) {
     timer_clear(i);

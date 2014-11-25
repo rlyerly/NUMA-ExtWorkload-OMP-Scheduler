@@ -107,7 +107,7 @@ int main ( int argc, char * argv[] )
 	//--------------------------------------------------------------------
 	// Initialize NUMA control
 	//--------------------------------------------------------------------
-	numa_initialize(CURRENT_NODE, CURRENT_NODE, NUMA_MIGRATE | NUMA_ENV);
+	numa_initialize_env(NUMA_MIGRATE_EXISTING);
 
   fprintf(stdout,"\n\n NAS Parallel Benchmarks (NPB3.3-OMP) - DC Benchmark\n\n" );
   if(argc!=3){
