@@ -19,6 +19,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #define SHMEM_FILE "omp_numa"
+#define MAX( a, b ) (a > b ? a : b)
+#define MIN( a, b ) (a < b ? a : b)
 
 /* Error-reporting */
 #define INIT_PERROR( msg, handle ) { \
@@ -60,7 +62,7 @@ struct omp_numa_t {
 // Initialization & shutdown
 ///////////////////////////////////////////////////////////////////////////////
 
-omp_numa_t* omp_numa_initialize()
+omp_numa_t* omp_numa_initialize(omp_numa_flags flags)
 {
 	int must_initialize = 0;
 	omp_numa_t* new_handle = (omp_numa_t*)malloc(sizeof(omp_numa_t));
@@ -68,9 +70,13 @@ omp_numa_t* omp_numa_initialize()
 	new_handle->shmem = NULL;
 
 	// Open shared-memory file
-	new_handle->shmem_fd = shm_open(SHMEM_FILE, O_RDWR | O_CREAT, 0666);
+	if(IS_SHEPHERD(flags))
+		new_handle->shmem_fd = shm_open(SHMEM_FILE, O_RDWR | O_CREAT | O_EXCL, 0666);
+	else
+		new_handle->shmem_fd = shm_open(SHMEM_FILE, O_RDWR, 0666);
 	if(new_handle->shmem_fd < 0)
-		INIT_PERROR("Could not open shared-memory device", new_handle);
+		INIT_PERROR("Could not open shared-memory device (is the shepherd running?)",
+			new_handle);
 
 	// Get size & initialize if necessary
 	// NOTE: not thread-safe! Written with the expectation that a single process
@@ -98,20 +104,31 @@ omp_numa_t* omp_numa_initialize()
 
 	if(must_initialize)
 	{
-		// Initialize semaphore & counters
+		// Initialize semaphore
 		if(sem_init(&new_handle->shmem->lock, 1, 1))
 			INIT_PERROR("Could not initialize semaphore", new_handle);
-		omp_numa_clear_counters(new_handle);
+		sem_wait(&new_handle->shmem->lock);
+
+		// Initialize shared memory
+		new_handle->shmem->num_nodes =
+			MIN(numa_num_configured_nodes(), MAX_NUM_NODES);
+
+		int i = 0;
+		for(i = 0; i < new_handle->shmem->num_nodes; i++)
+			new_handle->shmem->node_task_count[i] = 0;
+
+		sem_post(&new_handle->shmem->lock);
 	}
 
 	return new_handle;
 }
 
-void omp_numa_shutdown(omp_numa_t* handle)
+void omp_numa_shutdown(omp_numa_t* handle, omp_numa_flags flags)
 {
 	munmap(handle->shmem, sizeof(omp_numa_shmem));
 	close(handle->shmem_fd);
-	shm_unlink(SHMEM_FILE);
+	if(IS_SHEPHERD(flags))
+		shm_unlink(SHMEM_FILE);
 	free(handle);
 }
 
@@ -140,6 +157,27 @@ int omp_numa_num_tasks(omp_numa_t* handle, numa_node_t node, omp_numa_flags flag
 	}
 }
 
+void omp_numa_task_assignment(omp_numa_t* handle,
+															unsigned* task_assignment,
+															size_t num_nodes,
+															omp_numa_flags flags)
+{
+	int i, num_elems = MIN(num_nodes, MAX_NUM_NODES);
+
+	if(DO_FAST_CHECK(flags))
+	{
+		for(i = 0; i < num_elems; i++)
+			task_assignment[i] = handle->shmem->node_task_count[i];
+	}
+	else
+	{
+		sem_wait(&handle->shmem->lock);
+		for(i = 0; i < num_elems; i++)
+			task_assignment[i] = handle->shmem->node_task_count[i];
+		sem_post(&handle->shmem->lock);
+	}
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Updates
 ///////////////////////////////////////////////////////////////////////////////
@@ -148,7 +186,7 @@ void omp_numa_clear_counters(omp_numa_t* handle)
 {
 	sem_wait(&handle->shmem->lock);
 	int i = 0;
-	for(i = 0; i < MAX_NUM_NODES; i++)
+	for(i = 0; i < handle->shmem->num_nodes; i++)
 		handle->shmem->node_task_count[i] = 0;
 	sem_post(&handle->shmem->lock);
 }
@@ -164,7 +202,7 @@ exec_spec_t* omp_numa_schedule_tasks(omp_numa_t* handle,
 	if(requested != NULL)
 	{
 		numa_node_t cur_node = 0;
-		for(cur_node = 0; cur_node < MAX_NUM_NODES; cur_node++)
+		for(cur_node = 0; cur_node < handle->shmem->num_nodes; cur_node++)
 			handle->shmem->node_task_count[cur_node] +=
 				requested->task_assignment[cur_node];
 		result = requested;
@@ -183,7 +221,7 @@ void omp_numa_cleanup(omp_numa_t* handle, exec_spec_t* spec)
 {
 	sem_wait(&handle->shmem->lock);
 	numa_node_t cur_node = 0;
-	for(cur_node = 0; cur_node < MAX_NUM_NODES; cur_node++)
+	for(cur_node = 0; cur_node < handle->shmem->num_nodes; cur_node++)
 		handle->shmem->node_task_count[cur_node] -=
 			spec->task_assignment[cur_node];
 	sem_post(&handle->shmem->lock);

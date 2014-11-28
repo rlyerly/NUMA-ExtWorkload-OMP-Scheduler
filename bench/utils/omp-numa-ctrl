@@ -1,0 +1,73 @@
+#!/bin/bash
+
+###############################################################################
+## Config
+###############################################################################
+
+ACTION="none"
+HOST_OUT="/dev/null"
+
+###############################################################################
+## Helper functions
+###############################################################################
+
+function print_help {
+	echo "omp-numa-ctrl: control OpenMP/NUMA shared-memory shepherd process"
+	echo
+	echo "Usage: ./omp-numa-ctrl <start | info | clear | stop> [ OPTIONS ]"
+	echo "Options:"
+	echo -e "\t-h/--help : print help & exit"
+	echo -e "\t-o <file> : send output for OpenMP/NUMA shepherd to file (default is $HOST_OUT)"
+	exit 0
+}
+
+function shmem_shepherd_pid {
+	echo `ps aux | grep "shmem-shepherd" | grep -v "grep" | grep -v "vim" | awk '{print $2}'`
+}
+
+function start_shepherd {
+	if [ ! -e "./shmem-shepherd" ]; then
+		echo "Please build shmem-shepherd before trying to start the shepherd process!"
+		exit 1
+	else
+		./shmem-shepherd > $HOST_OUT &
+	fi
+}
+
+function shepherd_info {
+	kill -10 `shmem_shepherd_pid`
+}
+
+function shepherd_clear {
+	kill -12 `shmem_shepherd_pid`
+}
+
+function stop_shepherd {
+	kill -2 `shmem_shepherd_pid`
+}
+
+###############################################################################
+## Driver
+###############################################################################
+
+while [ "$1" != "" ]; do
+	case $1 in
+		-h | --help) print_help ;;
+		start | info | clear | stop) ACTION=$1 ;;
+		-o)
+			HOST_OUT=$2
+			shift ;;
+		*)
+			echo "Unknown option $1"
+			print_help ;;
+	esac
+	shift
+done
+
+case $ACTION in
+	start) start_shepherd ;;
+	info) shepherd_info ;;
+	clear) shepherd_clear ;;
+	stop) stop_shepherd ;;
+esac
+

@@ -32,10 +32,19 @@ typedef struct exec_spec_t {
 /* Flag type for configuring behavior */
 typedef unsigned omp_numa_flags;
 
+/* 
+ * For initialize & shutdown, specify whether the calling process is
+ * considered the shepherd process responsible for initial setup & final
+ * cleanup.
+ */
+#define IS_SHEPHERD( flags ) (flags & 0x1)
+#define SHEPHERD 1
+#define NOT_SHEPHERD 0
+
 /* For query operations, specify whether to lock or not */
-#define DO_FAST_CHECK( flags ) (flags & 0x1)
-#define FAST_CHECK 1
-#define NO_FAST_CHECK 0
+#define DO_FAST_CHECK( flags ) ((flags >> 1) & 0x1)
+#define FAST_CHECK 1 << 1
+#define NO_FAST_CHECK 0 << 1
 
 ///////////////////////////////////////////////////////////////////////////////
 // Initialization & shutdown
@@ -47,14 +56,14 @@ typedef unsigned omp_numa_flags;
  * @return a shared-memory handle used for communication, or NULL if
  *         initialization failed
  */
-omp_numa_t* omp_numa_initialize();
+omp_numa_t* omp_numa_initialize(omp_numa_flags flags);
 
 /**
  * Shutdown shared-memory communication
  *
  * @param handle the shared-memory handle to shutdown & clean up
  */
-void omp_numa_shutdown(omp_numa_t* handle);
+void omp_numa_shutdown(omp_numa_t* handle, omp_numa_flags);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Current OpenMP/NUMA information
@@ -74,6 +83,19 @@ numa_node_t omp_numa_num_nodes(omp_numa_t* handle);
  * @return the number of OpenMP tasks executing on a node
  */
 int omp_numa_num_tasks(omp_numa_t* handle, numa_node_t node, omp_numa_flags flags);
+
+/**
+ * Populate an array with the current task assignment for all NUMA nodes.
+ *
+ * @param handle the shared-memory handle
+ * @param task_assignment an array to be populated with current task assignment
+ * @param num_nodes number of elements in task_assignment
+ * @param flags users can specify OMP_FAST to avoid locking
+ */
+void omp_numa_task_assignment(omp_numa_t* handle,
+															unsigned* task_assignment,
+															size_t num_nodes,
+															omp_numa_flags flags);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Updates to shared data
