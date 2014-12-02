@@ -64,7 +64,6 @@ struct omp_numa_t {
 
 omp_numa_t* omp_numa_initialize(omp_numa_flags flags)
 {
-	int must_initialize = 0;
 	omp_numa_t* new_handle = (omp_numa_t*)malloc(sizeof(omp_numa_t));
 	new_handle->shmem_fd = -1;
 	new_handle->shmem = NULL;
@@ -84,15 +83,12 @@ omp_numa_t* omp_numa_initialize(omp_numa_flags flags)
 	if(fstat(new_handle->shmem_fd, &new_handle->shmem_fd_stats))
 		INIT_PERROR("Could not get shared-memory file statistics", new_handle);
 
-	if(new_handle->shmem_fd_stats.st_size == 0)
-	{
-		// Resize
-		must_initialize = 1;
+	// Resize
+	if(IS_SHEPHERD(flags))
 		if(ftruncate(new_handle->shmem_fd, sizeof(omp_numa_shmem)))
 			INIT_PERROR("Could not resize shared-memory file", new_handle);
-	}
 
-	// Map in memory
+	// Map into memory
 	if((new_handle->shmem = (omp_numa_shmem*)mmap(NULL,
 																								sizeof(omp_numa_shmem),
 																								PROT_WRITE,
@@ -102,7 +98,7 @@ omp_numa_t* omp_numa_initialize(omp_numa_flags flags)
 																										== MAP_FAILED)
 		INIT_PERROR("Could not map shared-memory into process", new_handle);
 
-	if(must_initialize)
+	if(IS_SHEPHERD(flags))
 	{
 		// Initialize semaphore
 		if(sem_init(&new_handle->shmem->lock, 1, 1))
@@ -195,7 +191,6 @@ exec_spec_t* omp_numa_schedule_tasks(omp_numa_t* handle,
 																		 exec_spec_t* requested,
 																		 omp_numa_flags flags)
 {
-	assert(node < MAX_NUM_NODES);
 	sem_wait(&handle->shmem->lock);
 	exec_spec_t* result = NULL;
 

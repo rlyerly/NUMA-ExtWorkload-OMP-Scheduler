@@ -1,6 +1,6 @@
-BIN := shmem-host
+BIN := shmem-shepherd
 
-OMP_DIR := ../../intelomp/exports
+OMP_DIR := $(shell readlink -f ../../intelomp/exports)
 OMP_INCLUDE := $(OMP_DIR)/common/include
 OMP_LIB := $(OMP_DIR)/lin_32e/lib
 
@@ -15,7 +15,7 @@ $(BIN): $(SHEPHERD_SRC)
 	$(CC) $(CFLAGS) -o $@ $(SHEPHERD_SRC) $(LIBS)
 
 test: $(BIN)
-	$(CC) $(CFLAGS) -o shmem-test $(TEST_SRC) $(LIBS)
+	$(CC) $(CFLAGS) -fopenmp -o shmem-test $(TEST_SRC) $(LIBS)
 
 clean:
 	rm -f $(BIN) shmem-test
