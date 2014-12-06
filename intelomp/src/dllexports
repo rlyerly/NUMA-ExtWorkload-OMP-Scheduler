@@ -992,13 +992,15 @@ numa_nodemask_to_cpumask	2478
 numa_nodemask_to_str			2479
 numa_cpumask_to_str				2480
 
-omp_numa_initialize			2481
-omp_numa_shutdown				2482
-omp_numa_num_nodes			2483
-omp_numa_num_tasks			2484
-omp_numa_clear_counters	2485
-omp_numa_schedule_tasks	2486
-omp_numa_cleanup				2487
-omp_numa_free_exec_spec	2488
+omp_numa_initialize			    2481
+omp_numa_shutdown				    2482
+omp_numa_num_nodes			    2483
+omp_numa_num_procs          2484
+omp_numa_num_procs_per_node 2485
+omp_numa_num_tasks			    2486
+omp_numa_clear_counters	    2487
+omp_numa_schedule_tasks	    2488
+omp_numa_cleanup				    2489
+omp_numa_free_exec_spec	    2490
 
 # end of file #

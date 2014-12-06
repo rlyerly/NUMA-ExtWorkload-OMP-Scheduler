@@ -83,6 +83,11 @@ kmp_info_t __kmp_monitor;
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
 
+static omp_numa_t* ipc_handle;
+
+/* ------------------------------------------------------------------------ */
+/* ------------------------------------------------------------------------ */
+
 /* Forward declarations */
 
 void __kmp_cleanup( void );
@@ -105,11 +110,6 @@ static int __kmp_unregister_root_other_thread( int gtid );
 static void __kmp_unregister_library( void ); // called by __kmp_internal_end()
 static void __kmp_reap_thread( kmp_info_t * thread, int is_root );
 static kmp_info_t *__kmp_thread_pool_insert_pt = NULL;
-
-/* ------------------------------------------------------------------------ */
-/* ------------------------------------------------------------------------ */
-
-static omp_numa_t* shmem_handle;
 
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
@@ -1605,10 +1605,11 @@ __kmp_fork_call(
         nthreads = master_set_numthreads ?
             master_set_numthreads : get__nproc_2( parent_team, master_tid ); // TODO: get nproc directly from current task
 
-				// Rob: select number of threads & map
-				if(master_th->th.t_map_handle)
+				// Rob: select & map tasks
+				if(ipc_handle)
 				{
-					omp_numa_setup = omp_numa_map_tasks(master_th->th.t_map_handle, NULL, 0);
+					omp_numa_setup = omp_numa_map_tasks(ipc_handle, NULL, 0);
+					KMP_DEBUG_ASSERT( omp_numa_setup );
 					nthreads = omp_numa_setup->num_tasks;
 				}
 
@@ -1813,7 +1814,6 @@ __kmp_fork_call(
     TCW_SYNC_PTR(team->t.t_pkfn, microtask);
     team->t.t_invoke     = invoker;  /* TODO move this to root, maybe */
 		team->t.t_setup      = omp_numa_setup;
-		team->t.t_map_handle = master_th->th.t_map_handle;
     // TODO: parent_team->t.t_level == INT_MAX ???
 #if OMP_40_ENABLED
     if ( !master_th->th.th_teams_microtask || level > teams_level ) {
@@ -2174,11 +2174,15 @@ __kmp_join_call(ident_t *loc, int gtid
      // KMP_ASSERT( master_th->th.th_current_task->td_flags.executing == 0 );
      master_th->th.th_current_task->td_flags.executing = 1;
 
-		// Rob: shutdown NUMA library...actually close windows and everything?
-		//      If we enter another parallel region, what happens?
-		omp_numa_cleanup(team->t.t_map_handle, team->t.t_setup);
-		free(team->t.t_setup);
-		team->t.t_setup = NULL;
+		// Rob: clean up execution for this task
+		if(ipc_handle)
+		{
+			OMP_NUMA_DEBUG("cleaning up team\n");
+			KMP_DEBUG_ASSERT( team->t.t_setup );
+			omp_numa_cleanup(ipc_handle, team->t.t_setup);
+			free(team->t.t_setup);
+			team->t.t_setup = NULL;
+		}
 
     __kmp_release_bootstrap_lock( &__kmp_forkjoin_lock );
 
@@ -3465,11 +3469,6 @@ __kmp_register_root( int initial_thread )
     __kmp_create_worker( gtid, root_thread, __kmp_stksize );
     KMP_DEBUG_ASSERT( __kmp_gtid_get_specific() == gtid );
     TCW_4(__kmp_init_gtid, TRUE);
-
-		// TODO add error checking later down the line
-		root_thread->th.t_map_handle = omp_numa_initialize(0);
-		if(!root_thread->th.t_map_handle)
-			OMP_NUMA_DEBUG("WARNING: could not initialize OpenMP/NUMA shared memory control!\n");
 
     KA_TRACE( 20, ("__kmp_register_root: T#%d init T#%d(%d:%d) arrived: join=%u, plain=%u\n",
                     gtid, __kmp_gtid_from_tid( 0, root->r.r_hot_team ),
@@ -5106,9 +5105,7 @@ __kmp_launch_thread( kmp_info_t *this_thr )
 								{
 									numa_node_t cur_node;
 									int t_count = 0;
-									for(cur_node = 0;
-											cur_node < omp_numa_num_nodes((*pteam)->t.t_map_handle);
-											cur_node++)
+									for(cur_node = 0; cur_node < omp_numa_num_nodes(); cur_node++)
 									{
 										t_count += (*pteam)->t.t_setup->task_assignment[cur_node];
 										if(gtid < t_count)
@@ -5356,10 +5353,6 @@ __kmp_internal_end(void)
 {
     int i;
 
-		/* Rob: shutdown the NUMA support */
-		OMP_NUMA_DEBUG("in __kmp_internal_end\n");
-		// TODO actually call omp_numa_shutdown
-
     /* First, unregister the library */
     __kmp_unregister_library();
 
@@ -5473,6 +5466,13 @@ __kmp_internal_end(void)
     TCW_4(__kmp_init_gtid, FALSE);
     KMP_MB();       /* Flush all pending memory write invalidates.  */
 
+		if(ipc_handle)
+		{
+			/* Rob: shutdown cooperative mapping support */
+			OMP_NUMA_DEBUG("shutting down IPC in __kmp_internal_end\n");
+			omp_numa_shutdown(ipc_handle, 0);
+			ipc_handle = NULL;
+		}
 
     __kmp_cleanup();
 }
@@ -6087,6 +6087,11 @@ __kmp_do_serial_initialize( void )
         #endif /* KMP_OS_WINDOWS */
     #endif
 
+		/* Rob: initialize OpenMP/NUMA cooperative mapping
+		 * TODO turn on/off via flags/environment? */
+		OMP_NUMA_DEBUG("initializing IPC in __kmp_do_serial_initialize\n");
+		ipc_handle = omp_numa_initialize(0);
+
     /* we have finished the serial initialization */
     __kmp_init_counter ++;
 
@@ -6534,9 +6539,7 @@ __kmp_internal_fork( ident_t *id, int gtid, kmp_team_t *team )
 		{
 			numa_node_t cur_node;
 			int t_count = 0;
-			for(cur_node = 0;
-					cur_node < omp_numa_num_nodes(team->t.t_map_handle);
-					cur_node++)
+			for(cur_node = 0; cur_node < omp_numa_num_nodes(); cur_node++)
 			{
 				t_count += team->t.t_setup->task_assignment[cur_node];
 				if(gtid < t_count)

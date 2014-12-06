@@ -182,9 +182,19 @@ void omp_numa_shutdown(omp_numa_t* handle, omp_numa_flags flags)
 // Current OpenMP/NUMA Information
 ///////////////////////////////////////////////////////////////////////////////
 
-numa_node_t omp_numa_num_nodes(omp_numa_t* handle)
+numa_node_t omp_numa_num_nodes()
 {
 	return __num_nodes;
+}
+
+unsigned omp_numa_num_procs()
+{
+	return __num_procs;
+}
+
+unsigned omp_numa_num_procs_per_node()
+{
+	return __num_procs_per_node;
 }
 
 int omp_numa_num_tasks(omp_numa_t* handle, numa_node_t node, omp_numa_flags flags)

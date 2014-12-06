@@ -34,7 +34,8 @@ typedef struct exec_spec_t {
 typedef unsigned omp_numa_flags;
 
 /* OpenMP/NUMA debugging support */
-#define _OMP_NUMA_DEBUGGING 1
+//#define _OMP_NUMA_DEBUGGING 1
+#undef _OMP_NUMA_DEBUGGING
 
 #ifdef _OMP_NUMA_DEBUGGING
 #define OMP_NUMA_DEBUG( format, ... ) \
@@ -86,7 +87,17 @@ void omp_numa_shutdown(omp_numa_t* handle, omp_numa_flags);
 /**
  * Returns the number of nodes
  */
-numa_node_t omp_numa_num_nodes(omp_numa_t* handle);
+numa_node_t omp_numa_num_nodes();
+
+/**
+ * Returns the number of processors
+ */
+unsigned omp_numa_num_procs();
+
+/**
+ * Returns the number of processors per node
+ */
+unsigned omp_numa_num_procs_per_node();
 
 /**
  * Return the number of tasks currently executing on a NUMA node
