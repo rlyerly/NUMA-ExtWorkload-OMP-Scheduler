@@ -12,7 +12,7 @@ OBJS = numa_info.o \
 
 
 ${PROGRAM}: config ${OBJS}
-	${CLINK} ${CLINKFLAGS} -o ${PROGRAM} ${OBJS} ${C_LIB}
+	${CLINK} ${CLINKFLAGS} -o ${PROGRAM} ${OBJS} ${C_LIB} -lnuma
 
 .c.o:
 	${CCOMPILE} $<

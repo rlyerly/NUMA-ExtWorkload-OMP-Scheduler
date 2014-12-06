@@ -1611,6 +1611,7 @@ __kmp_fork_call(
 					omp_numa_setup = omp_numa_map_tasks(ipc_handle, NULL, 0);
 					KMP_DEBUG_ASSERT( omp_numa_setup );
 					nthreads = omp_numa_setup->num_tasks;
+					printf("begin_python|nthreads|%d\n", nthreads);
 				}
 
         nthreads = __kmp_reserve_threads(root, parent_team, master_tid, nthreads

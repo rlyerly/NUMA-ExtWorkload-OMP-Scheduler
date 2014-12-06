@@ -1,6 +1,6 @@
 OMP_DIR := $(shell readlink -f ../../intelomp/exports)
-OMP_INCLUDE := $(OMP_DIR)/common.deb/include
-OMP_LIB := $(OMP_DIR)/lin_32e.deb/lib
+OMP_INCLUDE := $(OMP_DIR)/common/include
+OMP_LIB := $(OMP_DIR)/lin_32e/lib
 
 CC := gcc
 COMMON_FLAGS := -O3 -Wall -g

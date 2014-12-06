@@ -69,10 +69,11 @@ int main(int argc, char** argv)
 	print_header("OPENMP THREAD BEHAVIOR");
 
 	/* See if child processes inherit NUMA nodes/CPUs */
+	int matching = 1;
 	omp_set_num_threads(numa_num_configured_nodes());
 	numa_initialize_node(0, 0, NUMA_MIGRATE_EXISTING);
 	struct bitmask* parent_nm = numa_get_run_node_mask();
-	printf("Set parent node to 0, checking that children inherit...\n\n");
+	printf("Set parent node to 0, checking if children inherit...\n\n");
 
 #pragma omp parallel shared(parent_nm)
 	{
@@ -82,19 +83,24 @@ int main(int argc, char** argv)
 			printf("Thread [%d]: %s\n", omp_get_thread_num(), str);
 
 			struct bitmask* nm = numa_get_run_node_mask();
-			assert(numa_bitmask_equal(parent_nm, nm) && "Child mask doesn't match parent mask!");
+			if(!numa_bitmask_equal(parent_nm, nm))
+				matching = 0;
+//			assert(numa_bitmask_equal(parent_nm, nm) && "Child mask doesn't match parent mask!");
 			numa_free_cpumask(nm);
 		}
 	}
 	numa_free_cpumask(parent_nm);
+	printf("\n%s\n", (matching ? "yes" :
+		"no (implies automatic thread managment by OpenMP library)"));
 
+	// This check doesn't play nicely with integration into OpenMP library
 	/* Migrate threads & print/verify NUMA info */
-	printf("\nMigrating threads...\n\n");
+/*	printf("\nMigrating threads...\n\n");
 #pragma omp parallel shared(str)
 	{
 		numa_bind_node(omp_get_thread_num(), NUMA_MIGRATE_EXISTING);
 
-		/* Sanity check migration & print thread info */
+		// Sanity check migration & print thread info
 #pragma omp critical
 		{
 			numa_task_info(str, sizeof(str));
@@ -108,7 +114,7 @@ int main(int argc, char** argv)
 			numa_free_cpumask(cm);
 		}
 	}
-	printf("\n");
+	printf("\n");*/
 
 	return 0;
 }

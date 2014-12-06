@@ -24,6 +24,7 @@
 #                            $(CC) $(CFLAGS)
 # linking is done with       $(CLINK) $(C_LIB) $(CLINKFLAGS)
 #---------------------------------------------------------------------------
+OPENMP_DIR = $(shell readlink -f ../../../intelomp/exports)
 
 #---------------------------------------------------------------------------
 # This is the C compiler used for C programs
@@ -35,12 +36,12 @@ CLINK	= $(CC)
 #---------------------------------------------------------------------------
 # These macros are passed to the linker 
 #---------------------------------------------------------------------------
-C_LIB  = -lm -liomp5 -lnuma -lrt
+C_LIB  = -lm -liomp5
 
 #---------------------------------------------------------------------------
 # These macros are passed to the compiler 
 #---------------------------------------------------------------------------
-C_INC = -I../common -I../../../intelomp/exports/common/include
+C_INC = -I../common -I$(OPENMP_DIR)/common/include
 
 #---------------------------------------------------------------------------
 # Global *compile time* flags for C programs
@@ -63,8 +64,7 @@ CFLAGS	= -g -Wall -O3 -fopenmp -mcmodel=medium
 # Global *link time* flags. Flags for increasing maximum executable 
 # size usually go here. 
 #---------------------------------------------------------------------------
-OPENMP_DIR = $(shell readlink -f ../../../intelomp/exports/lin_32e/lib)
-CLINKFLAGS = -O3 -fopenmp -mcmodel=medium -L$(OPENMP_DIR) -Wl,-rpath,$(OPENMP_DIR)
+CLINKFLAGS = -O3 -fopenmp -mcmodel=medium -L$(OPENMP_DIR)/lin_32e/lib -Wl,-rpath,$(OPENMP_DIR)/lin_32e/lib
 
 
 #---------------------------------------------------------------------------

@@ -44,6 +44,11 @@ function error {
 	exit 1
 }
 
+function get_time {
+	echo `cat $1 | grep "Time in seconds =" | \
+		sed 's/ Time in seconds =\s\+\([0-9]\+\.[0-9]\+\)/\1/g'`
+}
+
 ###############################################################################
 ## Benchmarks & size variations
 ###############################################################################
@@ -105,6 +110,14 @@ function shared_mem_init {
 	$SHMEM_HOME/omp-numa-ctrl start -o $SHMEM_OUTPUT || error "could not start shared memory shepherd!"
 }
 
+function shared_mem_info {
+	$SHMEM_HOME/omp-numa-ctrl info || warn "could not get shared memory information!"
+}
+
+function shared_mem_clear {
+	$SHMEM_HOME/omp-numa-ctrl clear || error "could not clear shared memory!"
+}
+
 function shared_mem_shutdown {
 	$SHMEM_HOME/omp-numa-ctrl stop || warn "could not stop shared memory shepherd!"
 }
@@ -144,6 +157,9 @@ function initialize {
 	esac
 
 	# Setup shared memory
+	if [ "$3" != "" ]; then
+		SHMEM_OUTPUT=$RESULTS/$3
+	fi
 	shared_mem_init
 
 	echo -e "finished!"
@@ -159,17 +175,14 @@ function run_thread_configured_bench {
 	local cur_iteration=$3
 	local log_file=$4
 
-	if [ "$4" != "/dev/null" ]; then
+	if [ "$log_file" != "/dev/null" ]; then
 		echo -n " +++ [$cur_iteration] $cur_bench ($5, $cur_threads) -> "
 	fi
 
 	OMP_NUM_THREADS=$cur_threads $NPB_BIN/$cur_bench > $log_file
 
-	if [ $? -eq 0 ]; then
-		if [ "$log_file" != "/dev/null" ]; then
-			echo `cat $log_file | grep "Time in seconds =" | \
-				sed 's/ Time in seconds =\s\+\([0-9]\+\.[0-9]\+\)/\1/g'`
-		fi
+	if [ $? -eq 0 ] && [ "$log_file" != "/dev/null" ]; then
+		echo `get_time $log_file`
 	else
 		echo "could not execute!"
 	fi
@@ -186,8 +199,26 @@ function run_numa_configured_bench {
 	NUMA_CPU_NODES=$cur_cpu_node NUMA_MEM_NODES=$cur_mem_node $NPB_BIN/$cur_bench > $log_file
 
 	if [ $? -eq 0 ]; then
-		echo `cat $log_file | grep "Time in seconds =" | \
-			sed 's/ Time in seconds =\s\+\([0-9]\+\.[0-9]\+\)/\1/g'`
+		echo `get_time $log_file`
+	else
+		echo "could not execute!"
+	fi
+}
+
+function run_bench {
+	local cur_bench=$1
+	local cur_iteration=$2
+	local log_file=$3
+
+	if [ "$log_file" != "/dev/null" ]; then
+		echo -n " +++ [$cur_iteration] $cur_bench -> "
+		echo "remove me!"
+	fi
+
+	$NPB_BIN/$cur_bench > $log_file
+
+	if [ $? -eq 0 ] && [ "$log_file" != "/dev/null" ]; then
+		echo `get_time $log_file`
 	else
 		echo "could not execute!"
 	fi
