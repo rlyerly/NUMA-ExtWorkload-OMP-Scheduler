@@ -44,7 +44,7 @@ function run_numa_motivation_bench {
 	# Run benchmarks
 	for bench in $benches; do
 		for iteration in `seq 1 $NUM_ITERATIONS`; do
-			run_configured_bench $bench $cpu_node $mem_node $iteration
+			run_numa_configured_bench $bench $cpu_node $mem_node $iteration
 		done
 	done
 }

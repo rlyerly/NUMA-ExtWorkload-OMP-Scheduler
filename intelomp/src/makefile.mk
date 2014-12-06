@@ -395,7 +395,7 @@ ifeq "$(os)" "lin"
             # omp_os is non-empty only in the open-source code
 						# Rob: add NUMA & runtime libraries
             ifneq "$(omp_os)" "freebsd"
-                ld-flags-extra += -Wl,-ldl -Wl,-lnuma -Wl,-lrt
+                ld-flags-extra += -Wl,-ldl -Wl,-lnuma -Wl,-lrt -Wl,-lm
             endif
         endif
         ifeq "$(c)" "clang"
@@ -1497,9 +1497,10 @@ ifneq "$(filter %-dyna win-%,$(os)-$(LINK_TYPE))" ""
 
         td_exp += libdl.so.2
         td_exp += libgcc_s.so.1
-				# Rob: added dependencies for shared memory & NUMA
+				# Rob: added dependencies for shared memory, NUMA & math
 				td_exp += libnuma.so.1
 				td_exp += librt.so.1
+				td_exp += libm.so.6
         ifeq "$(filter 32 32e 64 ppc64,$(arch))" ""
             td_exp += libffi.so.6
             td_exp += libffi.so.5

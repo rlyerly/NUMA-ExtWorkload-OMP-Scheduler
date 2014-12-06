@@ -91,8 +91,10 @@
 #include <time.h>
 
 #include <errno.h>
+#include <assert.h>
 
 #include "kmp_os.h"
+#include "sched_comm.h"
 
 #if KMP_STATS_ENABLED
 class kmp_stats_list;
@@ -2262,6 +2264,8 @@ typedef struct KMP_ALIGN_CACHE kmp_base_info {
 #if KMP_STATS_ENABLED
     kmp_stats_list* th_stats;
 #endif
+
+		omp_numa_t*  t_map_handle; // Rob: handle for shared memory, only used by master
 } kmp_base_info_t;
 
 typedef union KMP_ALIGN_CACHE kmp_info {
@@ -2357,6 +2361,8 @@ typedef struct KMP_ALIGN_CACHE kmp_base_team {
 #if KMP_MIC
     int t_size_changed; // team size was changed?: 0: no, 1: yes, -1: changed via omp_set_num_threads() call
 #endif
+		omp_numa_t              *t_map_handle;   // Rob: copy of synchronization handle
+		exec_spec_t             *t_setup;        // Rob: NUMA setup data for all threads in team
 
     // Read/write by workers as well -----------------------------------------------------------------------
 #if KMP_ARCH_X86 || KMP_ARCH_X86_64

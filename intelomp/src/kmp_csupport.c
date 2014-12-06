@@ -34,6 +34,8 @@
 
 </copyright> */
 
+#include <stdio.h>
+
 #include "omp.h"        /* extern "C" declarations of user-visible routines */
 #include "kmp.h"
 #include "kmp_i18n.h"
@@ -61,6 +63,7 @@
 void
 __kmpc_begin(ident_t *loc, kmp_int32 flags)
 {
+    printf("In __kmpc_begin\n");
     // By default __kmp_ignore_mppbeg() returns TRUE.
     if (__kmp_ignore_mppbeg() == FALSE) {
         __kmp_internal_begin();

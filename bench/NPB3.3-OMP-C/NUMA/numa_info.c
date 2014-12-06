@@ -21,7 +21,7 @@ void print_header(const char* msg)
 		marker[i] = '=';
 	marker[len-1] = '\0';
 
-	printf("%s\n= %s =\n%s\n\n", marker, msg, marker);
+	printf("  %s\n  = %s =\n  %s\n\n", marker, msg, marker);
 }
 
 int main(int argc, char** argv)
@@ -70,7 +70,7 @@ int main(int argc, char** argv)
 
 	/* See if child processes inherit NUMA nodes/CPUs */
 	omp_set_num_threads(numa_num_configured_nodes());
-	numa_initialize(0, 0, NUMA_MIGRATE_EXISTING);
+	numa_initialize_node(0, 0, NUMA_MIGRATE_EXISTING);
 	struct bitmask* parent_nm = numa_get_run_node_mask();
 	printf("Set parent node to 0, checking that children inherit...\n\n");
 

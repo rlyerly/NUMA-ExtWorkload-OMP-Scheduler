@@ -42,6 +42,7 @@
 #include "kmp_io.h"
 #include "kmp_stats.h"
 #include "kmp_wait_release.h"
+#include "sched_comm.h"
 
 #if !KMP_OS_FREEBSD
 # include <alloca.h>
@@ -646,7 +647,6 @@ __kmp_set_stack_info( int gtid, kmp_info_t *th )
        thread stack range can be reduced by sibling thread creation so pthread_attr_getstack
        may cause thread gtid aliasing */
     if ( ! KMP_UBER_GTID(gtid) ) {
-
         /* Fetch the real thread attributes */
         status = pthread_attr_init( &attr );
         KMP_CHECK_SYSFAIL( "pthread_attr_init", status );
@@ -677,7 +677,7 @@ __kmp_set_stack_info( int gtid, kmp_info_t *th )
 #endif /* KMP_OS_LINUX || KMP_OS_FREEBSD */
     /* Use incremental refinement starting from initial conservative estimate */
     TCW_PTR(th->th.th_info.ds.ds_stacksize, 0);
-    TCW_PTR(th -> th.th_info.ds.ds_stackbase, &stack_data);
+    TCW_PTR(th->th.th_info.ds.ds_stackbase, &stack_data);
     TCW_4(th->th.th_info.ds.ds_stackgrow, TRUE);
     return FALSE;
 }
@@ -963,7 +963,6 @@ __kmp_create_worker( int gtid, kmp_info_t *th, size_t stack_size )
     pthread_t      handle;
     pthread_attr_t thread_attr;
     int            status;
-
 
     th->th.th_info.ds.ds_gtid = gtid;
 

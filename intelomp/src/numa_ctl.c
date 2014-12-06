@@ -113,21 +113,31 @@ int numa_initialize_env(numa_flag_t flags)
 
 	struct bitmask* mem_nodes;
 	struct bitmask* exec_nodes;
+	int free_mem_nodes = 0;
+	int free_exec_nodes = 0;
 
 	if(getenv(NUMA_BIND_TO_NODES))
 	{
 		mem_nodes = numa_parse_nodestring(getenv(NUMA_BIND_TO_NODES));
 		exec_nodes = numa_parse_nodestring(getenv(NUMA_BIND_TO_NODES));
+		free_mem_nodes = 1;
+		free_exec_nodes = 1;
 	}
 	else
 	{
 		if(getenv(NUMA_CPU_NODES))
+		{
 			exec_nodes = numa_parse_nodestring(getenv(NUMA_CPU_NODES));
+			free_exec_nodes = 1;
+		}
 		else
 			exec_nodes = numa_all_nodes_ptr;
 
 		if(getenv(NUMA_MEM_NODES))
+		{
 			mem_nodes = numa_parse_nodestring(getenv(NUMA_MEM_NODES));
+			free_mem_nodes = 1;
+		}
 		else
 			mem_nodes = numa_all_nodes_ptr;
 	}
@@ -136,8 +146,10 @@ int numa_initialize_env(numa_flag_t flags)
 		"Could not get nodes from environment - check for valid nodestrings!");
 
 	result = numa_initialize(mem_nodes, exec_nodes, flags);
-	numa_bitmask_free(mem_nodes);
-	numa_bitmask_free(exec_nodes);
+	if(free_mem_nodes)
+		numa_bitmask_free(mem_nodes);
+	if(free_exec_nodes)
+		numa_bitmask_free(exec_nodes);
 	return result;
 }
 

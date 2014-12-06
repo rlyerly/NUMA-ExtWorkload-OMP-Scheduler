@@ -11,7 +11,14 @@
 NPB_HOME="`readlink -f ../`"
 NPB_BIN="$NPB_HOME/bin"
 NPB_SCRIPTS="$NPB_HOME/scripts"
+SHMEM_HOME="`readlink -f ../../utils`"
 RESULTS="$NPB_SCRIPTS/results_!!CONFIG!!_`date +%F_%R`_$$"
+
+###############################################################################
+## Configuration & flags
+###############################################################################
+
+EXIT=0
 
 ###############################################################################
 ## Helpers
@@ -64,7 +71,7 @@ function gen_all_benches {
 }
 
 ###############################################################################
-## NUMA Information
+## NUMA
 ###############################################################################
 
 NUMA_NODES=""
@@ -76,34 +83,99 @@ function get_numa_topology {
 	NUMA_NODES="`seq 0 $num_nodes`"
 }
 
+function disable_numa {
+	if [ `sysctl -a 2>/dev/null | grep "numa_balancing " | awk '{print $3}'` -eq 1 ]; then
+		sudo sysctl kernel.numa_balancing=0 > /dev/null 2>&1 || error "could not disable NUMA!"
+	fi
+}
+
+function enable_numa {
+	if [ `sysctl -a 2>/dev/null | grep "numa_balancing " | awk '{print $3}'` -eq 0 ]; then
+		sudo sysctl kernel.numa_balancing=1 > /dev/null 2>&1 || error "could not enable NUMA!"
+	fi
+}
+
+###############################################################################
+## Shared memory
+###############################################################################
+
+SHMEM_OUTPUT="/dev/null"
+
+function shared_mem_init {
+	$SHMEM_HOME/omp-numa-ctrl start -o $SHMEM_OUTPUT || error "could not start shared memory shepherd!"
+}
+
+function shared_mem_shutdown {
+	$SHMEM_HOME/omp-numa-ctrl stop || warn "could not stop shared memory shepherd!"
+}
+
 ###############################################################################
 ## Initialization & teardown
 ###############################################################################
 
+function shutdown {
+	if [ $EXIT -eq 1 ]; then
+		return
+	else
+		# Perform shutdown
+		echo -ne "\nShutting down experiments..."
+
+		EXIT=1
+		enable_numa
+		shared_mem_shutdown
+
+		echo -e "finished!\n"
+	fi
+}
+
 function initialize {
 	echo -n "Initializing experimental setup..."
 
+	# Setup results directory & signal traps
 	RESULTS=${RESULTS/!!CONFIG!!/$1} && mkdir -p $RESULTS \
 		|| error "couldn't make results directory"
+	trap shutdown SIGINT
+
+	# Toggle NUMA
 	get_numa_topology
-	# TODO setup shmem
+	case $2 in
+		no-numa) disable_numa ;;
+		*) enable_numa ;;
+	esac
+
+	# Setup shared memory
+	shared_mem_init
 
 	echo -e "finished!"
-}
-
-function shutdown {
-	echo -ne "\nShutting down experiments..."
-
-	# TODO?
-
-	echo -e "finished!\n"
 }
 
 ###############################################################################
 ## Benchmark execution
 ###############################################################################
 
-function run_configured_bench {
+function run_thread_configured_bench {
+	local cur_bench=$1
+	local cur_threads=$2
+	local cur_iteration=$3
+	local log_file=$4
+
+	if [ "$4" != "/dev/null" ]; then
+		echo -n " +++ [$cur_iteration] $cur_bench ($5, $cur_threads) -> "
+	fi
+
+	OMP_NUM_THREADS=$cur_threads $NPB_BIN/$cur_bench > $log_file
+
+	if [ $? -eq 0 ]; then
+		if [ "$log_file" != "/dev/null" ]; then
+			echo `cat $log_file | grep "Time in seconds =" | \
+				sed 's/ Time in seconds =\s\+\([0-9]\+\.[0-9]\+\)/\1/g'`
+		fi
+	else
+		echo "could not execute!"
+	fi
+}
+
+function run_numa_configured_bench {
 	local cur_bench=$1
 	local cur_cpu_node=$2
 	local cur_mem_node=$3

@@ -12,6 +12,7 @@
 extern "C" {
 #endif
 
+#include <stdio.h>
 #include <numa_ctl.h>
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -23,7 +24,7 @@ extern "C" {
 /* Handle used to query and retain NUMA information about OpenMP tasks */
 typedef struct omp_numa_t omp_numa_t;
 
-/* Execution specification, returned by schedule_tasks() */
+/* Execution specification, returned by map_tasks() */
 typedef struct exec_spec_t {
 	unsigned num_tasks; // Total number of tasks
 	unsigned task_assignment[MAX_NUM_NODES]; // Per-node tasks
@@ -32,8 +33,18 @@ typedef struct exec_spec_t {
 /* Flag type for configuring behavior */
 typedef unsigned omp_numa_flags;
 
-/* 
- * For initialize & shutdown, specify whether the calling process is
+/* OpenMP/NUMA debugging support */
+#define _OMP_NUMA_DEBUGGING 1
+
+#ifdef _OMP_NUMA_DEBUGGING
+#define OMP_NUMA_DEBUG( format, ... ) \
+	fprintf(stderr, "[%s, %d] OpenMP/NUMA: " format, __FILE__, __LINE__, \
+		##__VA_ARGS__)
+#else
+#define OMP_NUMA_DEBUG( format, ... )
+#endif
+
+/* For initialize & shutdown, specify whether the calling process is
  * considered the shepherd process responsible for initial setup & final
  * cleanup.
  */
@@ -45,6 +56,9 @@ typedef unsigned omp_numa_flags;
 #define DO_FAST_CHECK( flags ) ((flags >> 1) & 0x1)
 #define FAST_CHECK 1 << 1
 #define NO_FAST_CHECK 0 << 1
+
+/* Environment variables to specify configuration & execution */
+#define OMP_NUMA_AWARE_MAPPING "OMP_NUMA_AWARE_MAPPING"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Initialization & shutdown
@@ -111,17 +125,17 @@ void omp_numa_clear_counters(omp_numa_t* handle);
 /**
  * Schedule tasks for an OpenMP application
  *
- * TODO describe strategy for scheduling
+ * TODO describe strategy for mapping
  *
  * @param handle the shared-memory handle
  * @param requested_spec application-requested execution specification.  If
  *        non-null, then the library updates the shared memory with the
  *        requested specification (and ignores some flags).
- * @param flags configure scheduling behavior (ignored for now)
+ * @param flags configure mapping behavior (ignored for now)
  */
-exec_spec_t* omp_numa_schedule_tasks(omp_numa_t* handle,
-																		 exec_spec_t* requested,
-																		 omp_numa_flags flags);
+exec_spec_t* omp_numa_map_tasks(omp_numa_t* handle,
+																exec_spec_t* requested,
+																omp_numa_flags flags);
 
 /**
  * Cleanup an application's task from the node task counters

@@ -26,11 +26,12 @@ function shmem_shepherd_pid {
 }
 
 function start_shepherd {
-	if [ ! -e "./shmem-shepherd" ]; then
+	local live_dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+	if [ ! -e "$live_dir/shmem-shepherd" ]; then
 		echo "Please build shmem-shepherd before trying to start the shepherd process!"
 		exit 1
 	else
-		./shmem-shepherd > $HOST_OUT &
+		$live_dir/shmem-shepherd > $HOST_OUT &
 	fi
 }
 
@@ -44,6 +45,7 @@ function shepherd_clear {
 
 function stop_shepherd {
 	kill -2 `shmem_shepherd_pid`
+	rm -f /dev/shm/omp_numa
 }
 
 ###############################################################################
