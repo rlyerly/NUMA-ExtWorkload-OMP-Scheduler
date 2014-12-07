@@ -83,15 +83,20 @@ function run_external_workload {
 
 			# Run current bench
 			for iter in `seq $NUM_ITERATIONS`; do
-				run_bench $bench $i $RESULTS/${bench}-${external_workload}-${iter}.log
+				run_bench $bench $iter $RESULTS/${bench}-${external_workload}-${iter}.log
 			done
 
 			# Kill external workload
 			if [ $external_workload -ne 1 ]; then
 				pkill -TERM -P $$
-				sleep $BREATHER # Wait for external workload to finish
+				sleep `expr 3 * $BREATHER` # Wait for external workload to finish
+																	 # Note: wait a little longer since killing
+																	 # the workload launcher doesn't kill the
+																	 # application it's currently running
 			fi
-			shared_mem_clear # Just in case...
+#			shared_mem_clear
+			shared_mem_shutdown # Just in case...
+			shared_mem_init
 		done
 	done
 }

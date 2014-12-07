@@ -1611,7 +1611,24 @@ __kmp_fork_call(
 					omp_numa_setup = omp_numa_map_tasks(ipc_handle, NULL, 0);
 					KMP_DEBUG_ASSERT( omp_numa_setup );
 					nthreads = omp_numa_setup->num_tasks;
-					printf("begin_python|nthreads|%d\n", nthreads);
+
+					char str[4096];
+					char tmp[512];
+					snprintf(str, sizeof(str), "begin_python|num_tasks|%d\nbegin_python|task_assignment|[", nthreads);
+					numa_node_t i = 0;
+					for(i = 0; i < omp_numa_num_nodes(); i++)
+					{
+						if(omp_numa_setup->task_assignment[i] != 0)
+						{
+							snprintf(tmp, sizeof(tmp), "(%d,%d),", i, omp_numa_setup->task_assignment[i]);
+							strcat(str, tmp);
+						}
+					}
+					if(str[strlen(str)-1] == ',')
+						str[strlen(str)-1] = '\0';
+					snprintf(tmp, sizeof(tmp), "]\n");
+					strcat(str, tmp);
+					printf("%s", str);
 				}
 
         nthreads = __kmp_reserve_threads(root, parent_team, master_tid, nthreads
