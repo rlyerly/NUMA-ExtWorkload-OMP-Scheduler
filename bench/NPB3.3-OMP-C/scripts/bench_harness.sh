@@ -82,7 +82,8 @@ function gen_all_benches {
 NUMA_NODES=""
 
 function get_numa_topology {
-	local num_nodes=`$NPB_BIN/numa.U.x | grep "Number of NUMA nodes" | \
+	local num_nodes=`$NPB_BIN/numa.U.x 2> /dev/null | \
+		grep "Number of NUMA nodes" | \
 		sed 's/Number of NUMA nodes: \([0-9][0-9]*\)/\1/g'`
 	num_nodes=`expr $num_nodes - 1`
 	NUMA_NODES="`seq 0 $num_nodes`"
@@ -181,8 +182,10 @@ function run_thread_configured_bench {
 
 	OMP_NUM_THREADS=$cur_threads $NPB_BIN/$cur_bench > $log_file
 
-	if [ $? -eq 0 ] && [ "$log_file" != "/dev/null" ]; then
-		echo `get_time $log_file`
+	if [ $? -eq 0 ]; then
+		if [ "$log_file" != "/dev/null" ]; then
+			echo `get_time $log_file`
+		fi
 	else
 		echo "could not execute!"
 	fi
@@ -212,13 +215,14 @@ function run_bench {
 
 	if [ "$log_file" != "/dev/null" ]; then
 		echo -n " +++ [$cur_iteration] $cur_bench -> "
-		echo "remove me!"
 	fi
 
 	$NPB_BIN/$cur_bench > $log_file
 
-	if [ $? -eq 0 ] && [ "$log_file" != "/dev/null" ]; then
-		echo `get_time $log_file`
+	if [ $? -eq 0 ]; then
+		if [ "$log_file" != "/dev/null" ]; then
+			echo `get_time $log_file`
+		fi
 	else
 		echo "could not execute!"
 	fi

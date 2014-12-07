@@ -20,7 +20,7 @@ function print_help {
 	echo
 	echo "Usage: thread_adj_motivation.sh [ OPTIONS ]"
 	echo "Options:"
-	echo -e "\t-h/--help : print help & exit"
+	echo -e "\t-h/--help   : print help & exit"
 	echo -e "\t-i <number> : number of iterations to run (default is $NUM_ITERATIONS)"
 	echo -e "\t-s <size>   : benchmark size (valid values are S, W, A, B, C, medium & all)"
 	echo -e "\t              default is $BENCH_SIZE"
