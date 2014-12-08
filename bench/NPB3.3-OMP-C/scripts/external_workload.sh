@@ -8,8 +8,9 @@ source bench_harness.sh
 
 NUM_ITERATIONS=50
 BENCH_SIZE="medium"
+RAW_OPENMP=0
 OMP_NUMA_AWARE_MAPPING=0
-EXTERNAL_WORKLOADS="1 2 4 8 16"
+EXTERNAL_WORKLOADS="1 2 4 8" #16
 BREATHER=5
 
 ###############################################################################
@@ -26,6 +27,7 @@ function print_help {
 	echo -e "\t-s <size>   : benchmark size (valid values are S, W, A, B, C, medium & all)"
 	echo -e "\t              default is $BENCH_SIZE"
 	echo -e "\t-n          : enable NUMA-aware mapping decisions* (default is $OMP_NUMA_AWARE_MAPPING)"
+	echo -e "\t-d          : disable context-aware support"
 	echo
 	echo "*Not yet implemented!"
 	exit 0
@@ -63,9 +65,6 @@ function run_external_workload {
 		*) error "Unknown bench size $BENCH_SIZE" ;;
 	esac
 
-	# Cut out LU, as it takes an astronomically long time to co-run
-	benches=${benches/lu.A.x}
-
 	# Iterate through different external workload cases
 	for external_workload in $EXTERNAL_WORKLOADS; do
 		for bench in $benches; do
@@ -89,7 +88,7 @@ function run_external_workload {
 			# Kill external workload
 			if [ $external_workload -ne 1 ]; then
 				pkill -TERM -P $$
-				sleep `expr 3 * $BREATHER` # Wait for external workload to finish
+				sleep $(( 3 * $BREATHER )) # Wait for external workload to finish
 																	 # Note: wait a little longer since killing
 																	 # the workload launcher doesn't kill the
 																	 # application it's currently running
@@ -110,12 +109,16 @@ while [ "$1" != "" ]; do
 		-h | --help) print_help ;;
 		-i) NUM_ITERATIONS=$2; shift ;;
 		-s) BENCH_SIZE=$2; shift ;;
-		-n) 
+		-d) RAW_OPENMP=1 ;;
+		-n) OMP_NUMA_AWARE_MAPPING=1 ;;
 	esac
 	shift
 done
 
 initialize external_workload numa
+if [ $RAW_OPENMP -eq 1 ]; then
+	shared_mem_shutdown
+fi
 time run_external_workload
 shutdown
 

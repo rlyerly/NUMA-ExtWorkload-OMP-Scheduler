@@ -53,12 +53,12 @@ function get_time {
 ## Benchmarks & size variations
 ###############################################################################
 
-BENCH="bt cg dc ep ft is lu mg sp ua"
+BENCH="bt cg dc ep ft is mg sp ua" #lu 
 SIZES="S W A B C"
 
 # Medium-sized benches (10s-30s runtime on 8-core Opteron 6376)
 MED_BENCH="bt.A.x cg.B.x dc.W.x ep.A.x ft.B.x \
-					 is.C.x lu.A.x mg.C.x sp.A.x ua.A.x"
+					 is.C.x mg.C.x sp.A.x ua.A.x" #lu.A.x 
 
 function gen_benches {
 	local tmp=""
