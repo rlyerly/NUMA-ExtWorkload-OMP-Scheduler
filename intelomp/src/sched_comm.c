@@ -158,7 +158,7 @@ omp_numa_t* omp_numa_initialize(omp_numa_flags flags)
 
 	new_handle->prev_setup.num_tasks = 0;
 	for(i = 0; i < __num_nodes; i++)
-		new_handle->prev_setup.task_assignment[i] = 0;
+		new_handle->prev_setup.task_assignment[i] = 1;
 
 	// Initialize internal values
 	__num_nodes = MIN(numa_num_configured_nodes(), MAX_NUM_NODES);
@@ -218,7 +218,7 @@ void omp_numa_task_assignment(omp_numa_t* handle,
 															size_t num_nodes,
 															omp_numa_flags flags)
 {
-	int i, num_elems = MIN(num_nodes, __num_nodes);
+	unsigned i, num_elems = MIN(num_nodes, (unsigned)__num_nodes);
 
 	if(DO_FAST_CHECK(flags))
 	{
@@ -332,6 +332,26 @@ unsigned calc_num_tasks(omp_numa_t* handle, omp_numa_flags flags)
 // TODO make configurable, add other options
 /* Assign the requested number of tasks to nodes in a round-robin fasion -
  * fill each node up with tasks, then move on to the next.
+ *
+ * "Filling up a node" refers to mapping up to __num_procs_per_node tasks
+ * to a NUMA node.  If it has fewer tasks than this, it is considered
+ * unfilled.
+ *
+ * The current algorithm maps tasks according to the following priority:
+ *
+ * 1. (NUMA-aware) Map tasks to nodes that are empty and on which we've
+ *    previously executed
+ * 2. (NUMA-aware) Map tasks to nodes that are unfilled and on which we've
+ *    previously executed
+ * 3. Map tasks to nodes that are empty
+ * 4. Map tasks to nodes that are unfilled
+ * 5. Map tasks to nodes that have the least number of nodes.
+ *    (NUMA-aware) if two tasks have equally small numbers of tasks, prefer the
+ *    node on which we've previously executed
+ *
+ * TODO several of these priorities can be collapsed into single priorities,
+ * i.e. 1 & 2 could be done in the same for-loop.  This isn't a performance
+ * concern right now, as we've got maximum 8 nodes in our test setup.
  */
 exec_spec_t* map_tasks_to_nodes(omp_numa_t* handle,
 																unsigned num_tasks,
@@ -343,6 +363,15 @@ exec_spec_t* map_tasks_to_nodes(omp_numa_t* handle,
 	numa_node_t cur_node;
 	unsigned local_task_count[MAX_NUM_NODES];
 
+	// Check to see if NUMA-aware mapping is enabled
+	int numa_aware = 0;
+	if(getenv(OMP_NUMA_AWARE_MAPPING) &&
+		 !strcmp(getenv(OMP_NUMA_AWARE_MAPPING), "1"))
+	{
+		OMP_NUMA_DEBUG("NUMA-aware mapping is enabled\n");
+		numa_aware = 1;
+	}
+
 	// Initialize local copy of current task assignment & spec task assignment
 	spec->num_tasks = num_tasks;
 	for(cur_node = 0; cur_node < __num_nodes; cur_node++)
@@ -351,22 +380,45 @@ exec_spec_t* map_tasks_to_nodes(omp_numa_t* handle,
 		local_task_count[cur_node] = handle->shmem->node_task_count[cur_node];
 	}
 
-	// TODO be "NUMA-aware" - attempt to map tasks close to previously
-	// executed nodes
-	if(getenv(OMP_NUMA_AWARE_MAPPING))
+	// NUMA-aware passes - attempt to schedule onto nodes that are not full and
+	// on which we've previously executed
+	if(numa_aware)
 	{
-		const char* val = getenv(OMP_NUMA_AWARE_MAPPING);
+		// First pass - attempt to map tasks into empty & previous execution nodes
+		for(cur_node = 0; cur_node < __num_nodes && tasks_remaining; cur_node++)
+		{
+			if(local_task_count[cur_node] == 0 &&
+				 handle->prev_setup.task_assignment[cur_node] != 0)
+			{
+				task_chunk = MIN(tasks_remaining, __num_procs_per_node);
+				spec->task_assignment[cur_node] += task_chunk;
+				local_task_count[cur_node] += task_chunk;
+				tasks_remaining -= task_chunk;
+			}
+		}
 
-		if(!strcmp(val, "1"))
-			assert(false && "OMP_NUMA_AWARE_MAPPING not yet implemented!");
+		// Second pass - attempt to map tasks into non-full & previous execution
+		// nodes
+		for(cur_node = 0; cur_node < __num_nodes && tasks_remaining; cur_node++)
+		{
+			if(local_task_count[cur_node] < __num_procs_per_node &&
+				 handle->prev_setup.task_assignment[cur_node] != 0)
+			{
+				task_chunk = MIN(tasks_remaining,
+												 __num_procs_per_node - local_task_count[cur_node]);
+				spec->task_assignment[cur_node] += task_chunk;
+				local_task_count[cur_node] += task_chunk;
+				tasks_remaining -= task_chunk;
+			}
+		}
 	}
 
 	// First pass - attempt to map tasks into empty nodes
 	for(cur_node = 0; cur_node < __num_nodes && tasks_remaining; cur_node++)
 	{
-		task_chunk = MIN(tasks_remaining, __num_procs_per_node);
 		if(local_task_count[cur_node] == 0)
 		{
+			task_chunk = MIN(tasks_remaining, __num_procs_per_node);
 			spec->task_assignment[cur_node] += task_chunk;
 			local_task_count[cur_node] += task_chunk;
 			tasks_remaining -= task_chunk;
@@ -390,9 +442,11 @@ exec_spec_t* map_tasks_to_nodes(omp_numa_t* handle,
 	// Last pass - map tasks onto nodes to minimize oversubscription
 	while(tasks_remaining)
 	{
-		// Find node with smallest # tasks
 		numa_node_t cur_smallest = 0;
 		unsigned cur_smallest_count = UINT_MAX;
+
+		// Find node with smallest # tasks, or if we're NUMA-aware, a node with
+		// an equally small # tasks but was a previous execution node
 		for(cur_node = 0; cur_node < __num_nodes; cur_node++)
 		{
 			if(local_task_count[cur_node] < cur_smallest_count)
@@ -400,6 +454,10 @@ exec_spec_t* map_tasks_to_nodes(omp_numa_t* handle,
 				cur_smallest = cur_node;
 				cur_smallest_count = local_task_count[cur_node];
 			}
+			else if(numa_aware &&
+							local_task_count[cur_node] == cur_smallest_count &&
+							handle->prev_setup.task_assignment[cur_node] != 0)
+				cur_smallest = cur_node;
 		}
 
 		// Schedule tasks to fill up node to next multiple of __num_procs_per_node
