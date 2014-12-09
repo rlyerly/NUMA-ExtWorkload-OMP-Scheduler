@@ -180,7 +180,7 @@ function run_thread_configured_bench {
 		echo -n " +++ [$cur_iteration] $cur_bench ($5, $cur_threads) -> "
 	fi
 
-	OMP_NUM_THREADS=$cur_threads $NPB_BIN/$cur_bench > $log_file
+	OMP_NUM_THREADS=$cur_threads $NPB_BIN/$cur_bench > $log_file 2>&1
 
 	if [ $? -eq 0 ]; then
 		if [ "$log_file" != "/dev/null" ]; then
@@ -199,7 +199,7 @@ function run_numa_configured_bench {
 	echo -n " +++ [$cur_iteration] $cur_bench ($cur_cpu_node, $cur_mem_node) -> "
 
 	local log_file=$RESULTS/${cur_bench}-${cur_cpu_node}-${cur_mem_node}-${cur_iteration}.log
-	NUMA_CPU_NODES=$cur_cpu_node NUMA_MEM_NODES=$cur_mem_node $NPB_BIN/$cur_bench > $log_file
+	NUMA_CPU_NODES=$cur_cpu_node NUMA_MEM_NODES=$cur_mem_node $NPB_BIN/$cur_bench > $log_file 2>&1
 
 	if [ $? -eq 0 ]; then
 		echo `get_time $log_file`
@@ -217,7 +217,7 @@ function run_bench {
 		echo -n " +++ [$cur_iteration] $cur_bench -> "
 	fi
 
-	$NPB_BIN/$cur_bench > $log_file
+	$NPB_BIN/$cur_bench > $log_file 2>&1
 
 	if [ $? -eq 0 ]; then
 		if [ "$log_file" != "/dev/null" ]; then

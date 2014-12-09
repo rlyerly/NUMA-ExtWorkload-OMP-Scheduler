@@ -26,11 +26,17 @@ function print_help {
 	echo -e "\t-i <number> : number of iterations to run (default is $NUM_ITERATIONS)"
 	echo -e "\t-s <size>   : benchmark size (valid values are S, W, A, B, C, medium & all)"
 	echo -e "\t              default is $BENCH_SIZE"
-	echo -e "\t-n          : enable NUMA-aware mapping decisions* (default is $OMP_NUMA_AWARE_MAPPING)"
+	echo -e "\t-n          : enable NUMA-aware mapping decisions (default is $OMP_NUMA_AWARE_MAPPING)"
 	echo -e "\t-d          : disable context-aware support"
-	echo
-	echo "*Not yet implemented!"
 	exit 0
+}
+
+function configure {
+	if [ $RAW_OPENMP -eq 1 ]; then
+		shared_mem_shutdown
+	fi
+
+	export OMP_NUMA_AWARE_MAPPING
 }
 
 ###############################################################################
@@ -83,6 +89,9 @@ function run_external_workload {
 			# Run current bench
 			for iter in `seq $NUM_ITERATIONS`; do
 				run_bench $bench $iter $RESULTS/${bench}-${external_workload}-${iter}.log
+				if [ $EXIT -eq 1 ]; then
+					break;
+				fi
 			done
 
 			# Kill external workload
@@ -93,9 +102,12 @@ function run_external_workload {
 																	 # the workload launcher doesn't kill the
 																	 # application it's currently running
 			fi
-#			shared_mem_clear
-			shared_mem_shutdown # Just in case...
-			shared_mem_init
+
+			if [ $RAW_OPENMP -eq 0 ]; then
+#				shared_mem_clear
+				shared_mem_shutdown # Just in case...
+				shared_mem_init
+			fi
 		done
 	done
 }
@@ -116,9 +128,7 @@ while [ "$1" != "" ]; do
 done
 
 initialize external_workload numa
-if [ $RAW_OPENMP -eq 1 ]; then
-	shared_mem_shutdown
-fi
+configure
 time run_external_workload
 shutdown
 
