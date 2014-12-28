@@ -16,7 +16,7 @@ numProcs = -1
 ###############################################################################
 
 def printHelp():
-	print("parse_thread_adj_motivation.py - parse NUMA motivational results & generate heat map")
+	print("parse_thread_adj_motivation.py - parse dynamic thread adjustment motivational results & generate heat map")
 	print()
 	print("Usage: ./parse_thread_adj_motivation.py <input directory> [ OPTIONS ]")
 	print("Options:")
@@ -79,7 +79,6 @@ def saveResults(benches, outF):
 	statsFile = open(outF, "w")
 	for bench in sorted(benches.keys(), reverse=True):
 		stats = benches[bench].getStats()
-		print(bench + ": " + str(len(stats)))
 		statLine = ""
 		for otherBench in sorted(stats.keys()):
 			statLine += str(stats[otherBench]) + ","

@@ -129,7 +129,7 @@ class Benchmark:
 				if "Time in seconds" in line:
 					time = float(line.split()[4])
 			infile.close()
-			assert time in locals()
+			assert "time" in locals()
 			return (int(parts[1]), int(parts[2]), time)
 
 		cpuNode, memNode, time = parseFile(os.path.join(logDir, logFile))
