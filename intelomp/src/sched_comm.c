@@ -12,6 +12,7 @@
 
 /* Threading API */
 #include <semaphore.h>
+#include <pthread.h>
 #include <sys/sysinfo.h>
 
 #include <sched_comm.h>
@@ -19,6 +20,16 @@
 ///////////////////////////////////////////////////////////////////////////////
 // Internal definitions
 ///////////////////////////////////////////////////////////////////////////////
+
+/* Specify lock type (only leave one uncommented!) */
+#define _USE_SPINLOCK
+//#define _USE_SEMAPHORE
+
+#ifdef _USE_SPINLOCK
+#ifdef _USE_SEMAPHORE
+#error Please use either a spinlock or a semaphore!
+#endif
+#endif
 
 #define SHMEM_FILE "omp_numa"
 #define MAX( a, b ) (a > b ? a : b)
@@ -46,7 +57,11 @@ static unsigned __num_procs_per_node;
 /* Shared-memory data & application handle */
 typedef struct omp_numa_shmem {
 	/* POSIX locking for concurrency updates */
+#ifdef _USE_SPINLOCK
+	pthread_spinlock_t lock;
+#else
 	sem_t lock;
+#endif
 
 	/* Runtime environment information:
 	 *   1. Number of OpenMP applications
@@ -137,10 +152,16 @@ omp_numa_t* omp_numa_initialize(omp_numa_flags flags)
 
 	if(IS_SHEPHERD(flags))
 	{
-		// Initialize semaphore
+		// Initialize lock
+#ifdef _USE_SPINLOCK
+		if(pthread_spin_init(&new_handle->shmem->lock, PTHREAD_PROCESS_SHARED))
+			INIT_PERROR("Could not initialize spin lock", new_handle);
+		pthread_spin_lock(&new_handle->shmem->lock);
+#else
 		if(sem_init(&new_handle->shmem->lock, 1, 1))
 			INIT_PERROR("Could not initialize semaphore", new_handle);
 		sem_wait(&new_handle->shmem->lock);
+#endif
 
 		// Initialize shared memory
 		new_handle->shmem->num_omp_applications = 0;
@@ -153,7 +174,11 @@ omp_numa_t* omp_numa_initialize(omp_numa_flags flags)
 			new_handle->shmem->node_task_count[i] = 0;
 		}
 
+#ifdef _USE_SPINLOCK
+		pthread_spin_unlock(&new_handle->shmem->lock);
+#else
 		sem_post(&new_handle->shmem->lock);
+#endif
 	}
 
 	new_handle->prev_setup.num_tasks = 0;
@@ -174,7 +199,14 @@ void omp_numa_shutdown(omp_numa_t* handle, omp_numa_flags flags)
 	munmap(handle->shmem, sizeof(omp_numa_shmem));
 	close(handle->shmem_fd);
 	if(IS_SHEPHERD(flags))
+	{
+#ifdef _USE_SPINLOCK
+		pthread_spin_destroy(&handle->shmem->lock);
+#else
+		sem_destroy(&handle->shmem->lock);
+#endif
 		shm_unlink(SHMEM_FILE);
+	}
 	free(handle);
 }
 
@@ -206,9 +238,17 @@ int omp_numa_num_tasks(omp_numa_t* handle, numa_node_t node, omp_numa_flags flag
 	else // Get guaranteed up-to-date value
 	{
 		int result = -1;
+#ifdef _USE_SPINLOCK
+		pthread_spin_lock(&handle->shmem->lock);
+#else
 		sem_wait(&handle->shmem->lock);
+#endif
 		result = handle->shmem->node_task_count[node];
+#ifdef _USE_SPINLOCK
+		pthread_spin_unlock(&handle->shmem->lock);
+#else
 		sem_post(&handle->shmem->lock);
+#endif
 		return result;
 	}
 }
@@ -227,10 +267,18 @@ void omp_numa_task_assignment(omp_numa_t* handle,
 	}
 	else
 	{
+#ifdef _USE_SPINLOCK
+		pthread_spin_lock(&handle->shmem->lock);
+#else
 		sem_wait(&handle->shmem->lock);
+#endif
 		for(i = 0; i < num_elems; i++)
 			task_assignment[i] = handle->shmem->node_task_count[i];
+#ifdef _USE_SPINLOCK
+		pthread_spin_unlock(&handle->shmem->lock);
+#else
 		sem_post(&handle->shmem->lock);
+#endif
 	}
 }
 
@@ -240,20 +288,32 @@ void omp_numa_task_assignment(omp_numa_t* handle,
 
 void omp_numa_clear_counters(omp_numa_t* handle)
 {
+#ifdef _USE_SPINLOCK
+	pthread_spin_lock(&handle->shmem->lock);
+#else
 	sem_wait(&handle->shmem->lock);
+#endif
 	OMP_NUMA_DEBUG("clearing all node counters\n");
 
 	int i = 0;
 	for(i = 0; i < __num_nodes; i++)
 		handle->shmem->node_task_count[i] = 0;
+#ifdef _USE_SPINLOCK
+	pthread_spin_unlock(&handle->shmem->lock);
+#else
 	sem_post(&handle->shmem->lock);
+#endif
 }
 
 exec_spec_t* omp_numa_map_tasks(omp_numa_t* handle,
 																exec_spec_t* requested,
 																omp_numa_flags flags)
 {
+#ifdef _USE_SPINLOCK
+	pthread_spin_lock(&handle->shmem->lock);
+#else
 	sem_wait(&handle->shmem->lock);
+#endif
 
 	exec_spec_t* result;
 	handle->shmem->num_omp_applications++; // Needed before calc_num_tasks
@@ -282,13 +342,21 @@ exec_spec_t* omp_numa_map_tasks(omp_numa_t* handle,
 		}
 	}
 
+#ifdef _USE_SPINLOCK
+	pthread_spin_unlock(&handle->shmem->lock);
+#else
 	sem_post(&handle->shmem->lock);
+#endif
 	return result;
 }
 
 void omp_numa_cleanup(omp_numa_t* handle, exec_spec_t* spec)
 {
+#ifdef _USE_SPINLOCK
+	pthread_spin_lock(&handle->shmem->lock);
+#else
 	sem_wait(&handle->shmem->lock);
+#endif
 	OMP_NUMA_DEBUG("cleaning up (%d tasks)\n", spec->num_tasks);
 	handle->shmem->num_omp_applications--;
 	handle->shmem->num_omp_tasks -= spec->num_tasks;
@@ -302,7 +370,11 @@ void omp_numa_cleanup(omp_numa_t* handle, exec_spec_t* spec)
 				spec->task_assignment[cur_node];
 		}
 	}
+#ifdef _USE_SPINLOCK
+	pthread_spin_unlock(&handle->shmem->lock);
+#else
 	sem_post(&handle->shmem->lock);
+#endif
 
 	// Save previous setup for NUMA-aware mapping
 	handle->prev_setup.num_tasks = spec->num_tasks;
